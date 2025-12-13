@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:project_micro_journal/authentication/pages/forgot_password_page.dart';
 import 'package:project_micro_journal/authentication/services/authentication_service.dart';
 import 'package:project_micro_journal/authentication/services/authentication_token_storage_service.dart';
+import 'package:project_micro_journal/home/pages/home_page.dart';
 import 'package:project_micro_journal/utils/snackbar_service.dart';
 import 'signup_page.dart';
 
@@ -79,6 +80,13 @@ class LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
       setState(() {
         isLoading = false;
       });
+
+      if (mounted) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => const HomePage()),
+        );
+      }
     } catch (err) {
       snackbarService.showErrorSnackBar(context, err.toString());
 
