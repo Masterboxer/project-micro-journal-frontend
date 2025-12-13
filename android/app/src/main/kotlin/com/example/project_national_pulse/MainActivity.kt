@@ -1,4 +1,4 @@
-package com.example.project_civic_action
+package com.example.project_micro_journal
 
 import io.flutter.embedding.android.FlutterActivity
 

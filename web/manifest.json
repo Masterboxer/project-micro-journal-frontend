@@ -1,6 +1,6 @@
 {
-  "name": "project_civic_action",
-  "short_name": "project_civic_action",
+  "name": "project_micro_journal",
+  "short_name": "project_micro_journal",
   "start_url": ".",
   "display": "standalone",
   "background_color": "#0175C2",

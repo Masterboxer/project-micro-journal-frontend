@@ -2,7 +2,7 @@
 flutter run -d web-server --web-port 5000
 ```
 
-# Project Civic Action — MVP Pages & Tracker
+# Project Micro Journal — MVP Pages & Tracker
 
 > Minimal, 1-week MVP pages list (Flutter frontend + Go backend + Postgres).
 
