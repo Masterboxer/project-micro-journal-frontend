@@ -42,8 +42,10 @@ class _HomePageState extends State<HomePage> {
               ),
               ListTile(
                 title: const Text('One thing to improve tomorrow:'),
-                onTap: () =>
-                    Navigator.of(context).pop('One thing to improve tomorrow:'),
+                onTap:
+                    () => Navigator.of(
+                      context,
+                    ).pop('One thing to improve tomorrow:'),
               ),
               ListTile(
                 title: const Text('Grateful for:'),
@@ -61,7 +63,7 @@ class _HomePageState extends State<HomePage> {
         _selectedTemplate = template;
         // If the field is empty, prefill with the template
         if (_postController.text.trim().isEmpty) {
-          _postController.text = template + ' ';
+          _postController.text = '$template ';
           _postController.selection = TextSelection.fromPosition(
             TextPosition(offset: _postController.text.length),
           );
@@ -104,9 +106,10 @@ class _HomePageState extends State<HomePage> {
       appBar: AppBar(title: const Text('Today'), centerTitle: false),
       body: Padding(
         padding: const EdgeInsets.all(16),
-        child: _hasPostedToday
-            ? _buildPostedView(theme)
-            : _buildComposeView(theme),
+        child:
+            _hasPostedToday
+                ? _buildPostedView(theme)
+                : _buildComposeView(theme),
       ),
     );
   }

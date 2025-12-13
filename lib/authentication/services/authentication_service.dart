@@ -33,11 +33,25 @@ class AuthenticationService {
     }
   }
 
-  Future<Response> signup(String name, String email, String password) async {
+  Future<Response> signup(
+    String username,
+    String displayName,
+    String dob,
+    String gender,
+    String email,
+    String password,
+  ) async {
     try {
       final response = await _dio.post(
         '/users',
-        data: {'name': name, 'email': email, 'password': password},
+        data: {
+          'username': username,
+          'display_name': displayName,
+          'dob': dob,
+          'gender': gender,
+          'email': email,
+          'password': password,
+        },
       );
       return response;
     } on DioException catch (e) {

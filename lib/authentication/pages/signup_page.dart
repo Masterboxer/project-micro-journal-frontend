@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:project_micro_journal/authentication/pages/login_page.dart';
 import 'package:project_micro_journal/authentication/services/authentication_service.dart';
 import 'package:project_micro_journal/utils/snackbar_service.dart';
@@ -20,10 +21,16 @@ class SignupPageState extends State<SignupPage> with TickerProviderStateMixin {
   late Animation<Offset> _slideAnimation;
 
   final _formKey = GlobalKey<FormState>();
-  final _nameController = TextEditingController();
+  final _usernameController = TextEditingController();
+  final _displayNameController = TextEditingController();
+  final _dobController = TextEditingController();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
+
+  String? _selectedGender;
+  DateTime? _selectedDob;
+
   final authenticationService = AuthenticationService();
   final snackbarService = SnackbarService();
 
@@ -50,15 +57,47 @@ class SignupPageState extends State<SignupPage> with TickerProviderStateMixin {
   @override
   void dispose() {
     _animationController.dispose();
-    _nameController.dispose();
+    _usernameController.dispose();
+    _displayNameController.dispose();
+    _dobController.dispose();
     _emailController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
     super.dispose();
   }
 
+  Future<void> _selectDate() async {
+    final DateTime? picked = await showDatePicker(
+      context: context,
+      initialDate: DateTime.now().subtract(Duration(days: 365 * 18)),
+      firstDate: DateTime(1900),
+      lastDate: DateTime.now(),
+      helpText: 'Select your date of birth',
+    );
+
+    if (picked != null) {
+      setState(() {
+        _selectedDob = picked;
+        _dobController.text = DateFormat('yyyy-MM-dd').format(picked);
+      });
+    }
+  }
+
   Future<void> _handleSignup() async {
     if (!_formKey.currentState!.validate()) return;
+
+    if (_selectedGender == null) {
+      snackbarService.showErrorSnackBar(context, 'Please select your gender');
+      return;
+    }
+
+    if (_selectedDob == null) {
+      snackbarService.showErrorSnackBar(
+        context,
+        'Please select your date of birth',
+      );
+      return;
+    }
 
     setState(() {
       isLoading = true;
@@ -66,7 +105,10 @@ class SignupPageState extends State<SignupPage> with TickerProviderStateMixin {
 
     try {
       await authenticationService.signup(
-        _nameController.text.trim(),
+        _usernameController.text.trim(),
+        _displayNameController.text.trim(),
+        DateFormat('yyyy-MM-dd').format(_selectedDob!),
+        _selectedGender!,
         _emailController.text.trim(),
         _passwordController.text.trim(),
       );
@@ -157,11 +199,36 @@ class SignupPageState extends State<SignupPage> with TickerProviderStateMixin {
                           ),
                           SizedBox(height: 32),
 
-                          // Name field
+                          // Username field
                           TextFormField(
-                            controller: _nameController,
+                            controller: _usernameController,
                             decoration: InputDecoration(
-                              labelText: 'Full Name',
+                              labelText: 'Username',
+                              prefixIcon: Icon(Icons.alternate_email),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                            validator: (value) {
+                              if (value == null || value.trim().isEmpty) {
+                                return 'Please enter a username';
+                              }
+                              if (value.trim().length < 3) {
+                                return 'Username must be at least 3 characters';
+                              }
+                              if (!RegExp(r'^[a-zA-Z0-9_]+$').hasMatch(value)) {
+                                return 'Username can only contain letters, numbers, and underscores';
+                              }
+                              return null;
+                            },
+                          ),
+                          SizedBox(height: 16),
+
+                          // Display Name field
+                          TextFormField(
+                            controller: _displayNameController,
+                            decoration: InputDecoration(
+                              labelText: 'Display Name',
                               prefixIcon: Icon(Icons.person_outline),
                               border: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(12),
@@ -169,10 +236,77 @@ class SignupPageState extends State<SignupPage> with TickerProviderStateMixin {
                             ),
                             validator: (value) {
                               if (value == null || value.trim().isEmpty) {
-                                return 'Please enter your name';
+                                return 'Please enter your display name';
                               }
                               if (value.trim().length < 2) {
-                                return 'Name must be at least 2 characters';
+                                return 'Display name must be at least 2 characters';
+                              }
+                              return null;
+                            },
+                          ),
+                          SizedBox(height: 16),
+
+                          // Date of Birth field
+                          TextFormField(
+                            controller: _dobController,
+                            readOnly: true,
+                            decoration: InputDecoration(
+                              labelText: 'Date of Birth',
+                              prefixIcon: Icon(Icons.calendar_today_outlined),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              hintText: 'YYYY-MM-DD',
+                            ),
+                            onTap: () {
+                              _selectDate();
+                              FocusScope.of(context).requestFocus(FocusNode());
+                            },
+                            validator: (value) {
+                              if (value == null || value.isEmpty) {
+                                return 'Please select your date of birth';
+                              }
+                              return null;
+                            },
+                          ),
+                          SizedBox(height: 16),
+
+                          // Gender dropdown
+                          DropdownButtonFormField<String>(
+                            value: _selectedGender,
+                            decoration: InputDecoration(
+                              labelText: 'Gender',
+                              prefixIcon: Icon(Icons.wc_outlined),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                            items: [
+                              DropdownMenuItem(
+                                value: 'male',
+                                child: Text('Male'),
+                              ),
+                              DropdownMenuItem(
+                                value: 'female',
+                                child: Text('Female'),
+                              ),
+                              DropdownMenuItem(
+                                value: 'other',
+                                child: Text('Other'),
+                              ),
+                              DropdownMenuItem(
+                                value: 'prefer_not_to_say',
+                                child: Text('Prefer not to say'),
+                              ),
+                            ],
+                            onChanged: (value) {
+                              setState(() {
+                                _selectedGender = value;
+                              });
+                            },
+                            validator: (value) {
+                              if (value == null || value.isEmpty) {
+                                return 'Please select your gender';
                               }
                               return null;
                             },
