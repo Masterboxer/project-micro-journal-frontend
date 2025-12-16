@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:project_micro_journal/templates/template_model.dart';
+import 'package:project_micro_journal/templates/template_service.dart';
 
 class CreatePostPage extends StatefulWidget {
   const CreatePostPage({super.key});
@@ -9,14 +11,18 @@ class CreatePostPage extends StatefulWidget {
 
 class _CreatePostPageState extends State<CreatePostPage> {
   final TextEditingController _postController = TextEditingController();
-  String? _todayPhotoPath;
-  String? _selectedTemplate;
+  final TemplateService _templateService = TemplateService.instance;
 
-  final List<String> _templates = [
-    'What went well today?',
-    'One thing to improve tomorrow:',
-    'Grateful for:',
-  ];
+  String? _todayPhotoPath;
+  PostTemplate? _selectedTemplate;
+
+  late List<PostTemplate> _templates;
+
+  @override
+  void initState() {
+    super.initState();
+    _templates = _templateService.getAllTemplates();
+  }
 
   @override
   void dispose() {
@@ -54,17 +60,16 @@ class _CreatePostPageState extends State<CreatePostPage> {
       return;
     }
 
-    // Create post data object
+    // Create post data object with template ID
     final postData = {
-      'template': _selectedTemplate!,
+      'templateId': _selectedTemplate!.id,
+      'template': _selectedTemplate!.name,
       'text': text,
       'photoPath': _todayPhotoPath,
       'timestamp': DateTime.now(),
     };
 
     // TODO: Send to backend / local DB before popping
-
-    // Return the post data to HomePage
     Navigator.pop(context, postData);
   }
 
@@ -104,15 +109,16 @@ class _CreatePostPageState extends State<CreatePostPage> {
             runSpacing: 8,
             children:
                 _templates.map((template) {
-                  final isSelected = _selectedTemplate == template;
+                  final isSelected = _selectedTemplate?.id == template.id;
                   return ChoiceChip(
-                    label: Text(template),
+                    label: Text(template.name),
                     selected: isSelected,
+                    avatar: isSelected ? null : Icon(template.icon, size: 18),
                     onSelected: (selected) {
                       setState(() {
                         _selectedTemplate = selected ? template : null;
                         if (selected) {
-                          _postController.text = '$template ';
+                          _postController.text = '${template.name} ';
                           _postController
                               .selection = TextSelection.fromPosition(
                             TextPosition(offset: _postController.text.length),
@@ -148,18 +154,32 @@ class _CreatePostPageState extends State<CreatePostPage> {
               child: Row(
                 children: [
                   Icon(
-                    Icons.check_circle,
+                    _selectedTemplate!.icon,
                     color: theme.colorScheme.primary,
                     size: 20,
                   ),
                   const SizedBox(width: 8),
                   Expanded(
-                    child: Text(
-                      'Template: $_selectedTemplate',
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: theme.colorScheme.onSurface,
-                        fontWeight: FontWeight.w500,
-                      ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Template: ${_selectedTemplate!.name}',
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            color: theme.colorScheme.onSurface,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        if (_selectedTemplate!.description.isNotEmpty) ...[
+                          const SizedBox(height: 4),
+                          Text(
+                            _selectedTemplate!.description,
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: theme.colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                        ],
+                      ],
                     ),
                   ),
                 ],

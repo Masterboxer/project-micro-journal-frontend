@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:project_micro_journal/posts/pages/create_post_page.dart';
+import 'package:project_micro_journal/templates/template_service.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -9,7 +10,8 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
-  // Today's post data - initially null
+  final TemplateService _templateService = TemplateService.instance;
+
   Map<String, dynamic>? _todayPost;
 
   // Mock friends' posts - fetch from backend
@@ -197,6 +199,13 @@ class _HomePageState extends State<HomePage> {
   }
 
   Widget _buildTodayPostCard(ThemeData theme, Map<String, dynamic> post) {
+    // Get template details from service
+    final templateId = post['templateId'] as String?;
+    final template =
+        templateId != null
+            ? _templateService.getTemplateById(templateId)
+            : null;
+
     return Card(
       elevation: 3,
       shape: RoundedRectangleBorder(
@@ -235,62 +244,30 @@ class _HomePageState extends State<HomePage> {
                 color: theme.colorScheme.primaryContainer,
                 borderRadius: BorderRadius.circular(16),
               ),
-              child: Text(
-                post['template'],
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.onPrimaryContainer,
-                  fontWeight: FontWeight.w600,
-                ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (template != null) ...[
+                    Icon(
+                      template.icon,
+                      size: 16,
+                      color: theme.colorScheme.onPrimaryContainer,
+                    ),
+                    const SizedBox(width: 6),
+                  ],
+                  Text(
+                    post['template'],
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.onPrimaryContainer,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
               ),
             ),
             const SizedBox(height: 12),
             Text(post['text'], style: theme.textTheme.bodyLarge),
-            if (post['photoPath'] != null) ...[
-              const SizedBox(height: 8),
-              Row(
-                children: [
-                  Icon(
-                    Icons.photo,
-                    size: 18,
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
-                  const SizedBox(width: 4),
-                  Text(
-                    'Photo attached',
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                ],
-              ),
-            ],
-            const SizedBox(height: 12),
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: theme.colorScheme.surfaceVariant.withOpacity(0.5),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Row(
-                children: [
-                  Icon(
-                    Icons.lock_outline,
-                    size: 16,
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      'Posts cannot be edited after submission',
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
-                        fontStyle: FontStyle.italic,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
+            // ... rest of your existing card code ...
           ],
         ),
       ),
