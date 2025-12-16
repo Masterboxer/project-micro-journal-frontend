@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:project_micro_journal/posts/pages/create_post_page.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -8,68 +9,49 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
-  final TextEditingController _postController = TextEditingController();
-  String? _todayPostText;
-  String? _todayPhotoPath;
-  bool _hasPostedToday = false;
-  String? _selectedTemplate;
+  // Mock data - replace with actual data from backend/DB
+  final Map<String, dynamic>? _todayPost = {
+    'template': 'What went well today?',
+    'text':
+        'What went well today? Had a productive meeting and learned Flutter!',
+    'photoPath': 'mock_photo.jpg',
+    'timestamp': DateTime.now(),
+  };
 
-  final List<String> _templates = [
-    'What went well today?',
-    'One thing to improve tomorrow:',
-    'Grateful for:',
+  // Mock friends' posts - fetch from backend
+  final List<Map<String, dynamic>> _friendsPosts = [
+    {
+      'userName': 'Sarah Johnson',
+      'userAvatar': 'assets/avatar1.jpg',
+      'template': 'Grateful for:',
+      'text': 'Grateful for: My supportive team and sunny weather today',
+      'photoPath': null,
+      'timestamp': DateTime.now().subtract(const Duration(hours: 2)),
+    },
+    {
+      'userName': 'Mike Chen',
+      'userAvatar': 'assets/avatar2.jpg',
+      'template': 'One thing to improve tomorrow:',
+      'text': 'One thing to improve tomorrow: Better time management',
+      'photoPath': 'mock_photo2.jpg',
+      'timestamp': DateTime.now().subtract(const Duration(hours: 5)),
+    },
+    {
+      'userName': 'Emily Davis',
+      'userAvatar': 'assets/avatar3.jpg',
+      'template': 'What went well today?',
+      'text': 'What went well today? Finished my project ahead of schedule!',
+      'photoPath': null,
+      'timestamp': DateTime.now().subtract(const Duration(hours: 8)),
+    },
   ];
 
-  @override
-  void dispose() {
-    _postController.dispose();
-    super.dispose();
-  }
-
-  Future<void> _pickPhoto() async {
-    // TODO: integrate image picker
-    // For now, just mock a value
-    setState(() {
-      _todayPhotoPath = 'mock_photo_path.jpg';
-    });
-  }
-
-  void _submitPost() {
-    final text = _postController.text.trim();
-
-    // Validate template selection
-    if (_selectedTemplate == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please select a template first'),
-          backgroundColor: Colors.red,
-        ),
-      );
-      return;
-    }
-
-    if (text.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please write something for today'),
-          backgroundColor: Colors.red,
-        ),
-      );
-      return;
-    }
-
-    // TODO: send to backend / local DB
-    setState(() {
-      _todayPostText = text;
-      _hasPostedToday = true;
-    });
-  }
-
-  void _viewFriendsFeed() {
-    // TODO: navigate to Friends Feed page
-    ScaffoldMessenger.of(
+  void _createNewPost() {
+    // Navigate to create post page
+    Navigator.push(
       context,
-    ).showSnackBar(const SnackBar(content: Text('Friends Feed coming soon')));
+      MaterialPageRoute(builder: (context) => const CreatePostPage()),
+    );
   }
 
   @override
@@ -77,211 +59,297 @@ class _HomePageState extends State<HomePage> {
     final theme = Theme.of(context);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('My Micro Journal'), centerTitle: false),
-      body: Padding(
-        padding: const EdgeInsets.all(16),
-        child:
-            _hasPostedToday
-                ? _buildPostedView(theme)
-                : _buildComposeView(theme),
+      appBar: AppBar(
+        title: const Text('My Micro Journal'),
+        centerTitle: false,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.add_circle_outline),
+            onPressed: _createNewPost,
+            tooltip: 'Create new post',
+          ),
+        ],
       ),
+      body: RefreshIndicator(
+        onRefresh: () async {
+          // TODO: Refresh posts from backend
+          await Future.delayed(const Duration(seconds: 1));
+        },
+        child: ListView.builder(
+          padding: const EdgeInsets.all(16),
+          itemCount: 1 + (_todayPost != null ? 1 : 0) + _friendsPosts.length,
+          itemBuilder: (context, index) {
+            // Section header
+            if (index == 0) {
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 16),
+                child: Text(
+                  "Today's Post",
+                  style: theme.textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              );
+            }
+
+            // Today's post (pinned at top)
+            if (_todayPost != null && index == 1) {
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildTodayPostCard(theme, _todayPost!),
+                  const SizedBox(height: 24),
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 16),
+                    child: Text(
+                      'Friends Activity',
+                      style: theme.textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ],
+              );
+            }
+
+            // Friends' posts
+            final friendPostIndex = index - (_todayPost != null ? 2 : 1);
+            if (friendPostIndex < _friendsPosts.length) {
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 16),
+                child: _buildFriendPostCard(
+                  theme,
+                  _friendsPosts[friendPostIndex],
+                ),
+              );
+            }
+
+            return const SizedBox.shrink();
+          },
+        ),
+      ),
+      floatingActionButton:
+          _todayPost == null
+              ? FloatingActionButton.extended(
+                onPressed: _createNewPost,
+                icon: const Icon(Icons.edit),
+                label: const Text('Create Today\'s Post'),
+              )
+              : null,
     );
   }
 
-  Widget _buildComposeView(ThemeData theme) {
-    return SingleChildScrollView(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text("Today's micro-post", style: theme.textTheme.titleLarge),
-          const SizedBox(height: 8),
-          Text('Up to 280 characters.', style: theme.textTheme.bodySmall),
-          const SizedBox(height: 16),
-
-          // Template Selection Section
-          Text(
-            'Choose a template *',
-            style: theme.textTheme.titleMedium?.copyWith(
-              fontWeight: FontWeight.w600,
+  Widget _buildTodayPostCard(ThemeData theme, Map<String, dynamic> post) {
+    return Card(
+      elevation: 3,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(color: theme.colorScheme.primary, width: 2),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // "Your Post" indicator
+            Row(
+              children: [
+                Icon(Icons.person, size: 20, color: theme.colorScheme.primary),
+                const SizedBox(width: 8),
+                Text(
+                  'Your Post',
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    color: theme.colorScheme.primary,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const Spacer(),
+                Text(
+                  'Today',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
             ),
-          ),
-          const SizedBox(height: 12),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children:
-                _templates.map((template) {
-                  final isSelected = _selectedTemplate == template;
-                  return ChoiceChip(
-                    label: Text(template),
-                    selected: isSelected,
-                    onSelected: (selected) {
-                      setState(() {
-                        _selectedTemplate = selected ? template : null;
-                        // Clear or update text field based on selection
-                        if (selected) {
-                          _postController.text = '$template ';
-                          _postController
-                              .selection = TextSelection.fromPosition(
-                            TextPosition(offset: _postController.text.length),
-                          );
-                        }
-                      });
-                    },
-                    selectedColor: theme.colorScheme.primaryContainer,
-                    labelStyle: TextStyle(
-                      color:
-                          isSelected
-                              ? theme.colorScheme.onPrimaryContainer
-                              : theme.colorScheme.onSurface,
-                      fontWeight:
-                          isSelected ? FontWeight.w600 : FontWeight.normal,
-                    ),
-                    showCheckmark: true,
-                  );
-                }).toList(),
-          ),
+            const SizedBox(height: 12),
 
-          const SizedBox(height: 20),
-
-          // Selected Template Indicator
-          if (_selectedTemplate != null)
+            // Template tag
             Container(
-              padding: const EdgeInsets.all(12),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               decoration: BoxDecoration(
-                color: theme.colorScheme.primaryContainer.withOpacity(0.3),
+                color: theme.colorScheme.primaryContainer,
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Text(
+                post['template'],
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onPrimaryContainer,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+
+            // Post text
+            Text(post['text'], style: theme.textTheme.bodyLarge),
+            const SizedBox(height: 8),
+
+            // Photo indicator
+            if (post['photoPath'] != null)
+              Row(
+                children: [
+                  Icon(
+                    Icons.photo,
+                    size: 18,
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    'Photo attached',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+              ),
+
+            const SizedBox(height: 8),
+
+            // Note about editing
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: theme.colorScheme.surfaceVariant.withOpacity(0.5),
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: theme.colorScheme.primary, width: 1),
               ),
               child: Row(
                 children: [
                   Icon(
-                    Icons.check_circle,
-                    color: theme.colorScheme.primary,
-                    size: 20,
+                    Icons.lock_outline,
+                    size: 16,
+                    color: theme.colorScheme.onSurfaceVariant,
                   ),
                   const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      'Template: $_selectedTemplate',
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: theme.colorScheme.onSurface,
-                        fontWeight: FontWeight.w500,
-                      ),
+                  Text(
+                    'Posts cannot be edited after submission',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                      fontStyle: FontStyle.italic,
                     ),
                   ),
                 ],
               ),
             ),
-
-          const SizedBox(height: 16),
-
-          // Text Input Field
-          TextField(
-            controller: _postController,
-            maxLength: 280,
-            maxLines: 5,
-            decoration: InputDecoration(
-              border: const OutlineInputBorder(),
-              hintText:
-                  _selectedTemplate != null
-                      ? 'Continue writing...'
-                      : 'Select a template first',
-              enabled: _selectedTemplate != null,
-            ),
-          ),
-
-          const SizedBox(height: 8),
-
-          // Photo Button
-          TextButton.icon(
-            onPressed: _pickPhoto,
-            icon: const Icon(Icons.photo_outlined),
-            label: Text(
-              _todayPhotoPath != null
-                  ? 'Photo added ✓'
-                  : 'Add photo (optional)',
-            ),
-          ),
-
-          const SizedBox(height: 16),
-
-          // Submit Button
-          SizedBox(
-            width: double.infinity,
-            child: FilledButton(
-              onPressed: _submitPost,
-              child: const Text("Submit today's post"),
-            ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
 
-  Widget _buildPostedView(ThemeData theme) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text("Today's post", style: theme.textTheme.titleLarge),
-        const SizedBox(height: 8),
-        Text(
-          "You cannot edit after posting.",
-          style: theme.textTheme.bodySmall,
-        ),
-        const SizedBox(height: 16),
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+  Widget _buildFriendPostCard(ThemeData theme, Map<String, dynamic> post) {
+    return Card(
+      elevation: 1,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // User info header
+            Row(
               children: [
-                // Show selected template
-                if (_selectedTemplate != null) ...[
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 6,
-                    ),
-                    decoration: BoxDecoration(
-                      color: theme.colorScheme.primaryContainer,
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    child: Text(
-                      _selectedTemplate!,
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.onPrimaryContainer,
-                        fontWeight: FontWeight.w600,
-                      ),
+                CircleAvatar(
+                  radius: 20,
+                  backgroundColor: theme.colorScheme.primaryContainer,
+                  child: Text(
+                    post['userName'][0],
+                    style: TextStyle(
+                      color: theme.colorScheme.onPrimaryContainer,
+                      fontWeight: FontWeight.bold,
                     ),
                   ),
-                  const SizedBox(height: 12),
-                ],
-                if (_todayPostText != null) ...[
-                  Text(_todayPostText!, style: theme.textTheme.bodyLarge),
-                  const SizedBox(height: 8),
-                ],
-                if (_todayPhotoPath != null)
-                  Row(
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Icon(Icons.photo, size: 18),
-                      const SizedBox(width: 4),
-                      Text('Photo attached', style: theme.textTheme.bodySmall),
+                      Text(
+                        post['userName'],
+                        style: theme.textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      Text(
+                        _formatTimestamp(post['timestamp']),
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ),
                     ],
                   ),
+                ),
               ],
             ),
-          ),
+            const SizedBox(height: 12),
+
+            // Template tag
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: theme.colorScheme.secondaryContainer,
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Text(
+                post['template'],
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSecondaryContainer,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+
+            // Post text
+            Text(post['text'], style: theme.textTheme.bodyMedium),
+
+            // Photo indicator
+            if (post['photoPath'] != null) ...[
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Icon(
+                    Icons.photo,
+                    size: 18,
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    'Photo attached',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ],
         ),
-        const Spacer(),
-        SizedBox(
-          width: double.infinity,
-          child: OutlinedButton(
-            onPressed: _viewFriendsFeed,
-            child: const Text('View Friends Feed'),
-          ),
-        ),
-      ],
+      ),
     );
+  }
+
+  String _formatTimestamp(DateTime timestamp) {
+    final now = DateTime.now();
+    final difference = now.difference(timestamp);
+
+    if (difference.inHours < 1) {
+      return '${difference.inMinutes}m ago';
+    } else if (difference.inHours < 24) {
+      return '${difference.inHours}h ago';
+    } else {
+      return '${difference.inDays}d ago';
+    }
   }
 }
