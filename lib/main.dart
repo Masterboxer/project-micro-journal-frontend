@@ -30,23 +30,93 @@ class ProjectMicroJournalApp extends StatelessWidget {
         ),
       ),
       themeMode: ThemeMode.system,
-      home: SafeArea(
-        child: FutureBuilder<String?>(
-          future: authenticationTokenStorageService.getAccessToken(),
-          builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.waiting) {
-              return const Scaffold(
-                body: Center(child: CircularProgressIndicator()),
-              );
-            } else if (snapshot.hasData && snapshot.data != null) {
-              return const HomePage();
-            } else {
-              return const SignupPage();
-            }
-          },
-        ),
-      ),
+      home: AuthWrapper(),
       debugShowCheckedModeBanner: false,
+    );
+  }
+}
+
+class AuthWrapper extends StatelessWidget {
+  const AuthWrapper({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      child: FutureBuilder<String?>(
+        future: AuthenticationTokenStorageService().getAccessToken(),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Scaffold(
+              body: Center(child: CircularProgressIndicator()),
+            );
+          } else if (snapshot.hasData && snapshot.data != null) {
+            return const MainAppTabs();
+          } else {
+            return const SignupPage();
+          }
+        },
+      ),
+    );
+  }
+}
+
+class MainAppTabs extends StatefulWidget {
+  const MainAppTabs({super.key});
+
+  @override
+  State<MainAppTabs> createState() => _MainAppTabsState();
+}
+
+class _MainAppTabsState extends State<MainAppTabs> {
+  int _currentIndex = 0;
+
+  final List<Widget> _tabs = [
+    const HomePage(),
+    const Center(
+      child: Text(
+        'Friends Page\nComing soon!',
+        textAlign: TextAlign.center,
+        style: TextStyle(fontSize: 18),
+      ),
+    ),
+    const Center(
+      child: Text(
+        'Profile Page\nComing soon!',
+        textAlign: TextAlign.center,
+        style: TextStyle(fontSize: 18),
+      ),
+    ),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: IndexedStack(index: _currentIndex, children: _tabs),
+      bottomNavigationBar: NavigationBar(
+        selectedIndex: _currentIndex,
+        onDestinationSelected: (int index) {
+          setState(() {
+            _currentIndex = index;
+          });
+        },
+        destinations: const [
+          NavigationDestination(
+            icon: Icon(Icons.home_outlined),
+            selectedIcon: Icon(Icons.home_filled),
+            label: 'Home',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.people_outlined),
+            selectedIcon: Icon(Icons.people),
+            label: 'Friends',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.person_outlined),
+            selectedIcon: Icon(Icons.person),
+            label: 'Profile',
+          ),
+        ],
+      ),
     );
   }
 }
