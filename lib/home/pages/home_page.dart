@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:project_micro_journal/authentication/services/authentication_token_storage_service.dart';
 import 'package:project_micro_journal/environment/development.dart';
 import 'package:project_micro_journal/posts/pages/create_post_page.dart';
 import 'package:project_micro_journal/templates/template_service.dart';
@@ -14,6 +15,8 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   final TemplateService _templateService = TemplateService.instance;
+  final AuthenticationTokenStorageService _authStorage =
+      AuthenticationTokenStorageService();
 
   Map<String, dynamic>? _todayPost;
   List<Map<String, dynamic>> _friendsPosts = [];
@@ -31,8 +34,7 @@ class _HomePageState extends State<HomePage> {
     try {
       await Future.wait([
         _templateService.fetchTemplatesFromBackend(),
-        _loadTodayPost(),
-        _loadFriendsPosts(),
+        _loadFeed(),
       ]);
     } catch (e) {
       setState(() {
@@ -45,46 +47,80 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
-  Future<void> _loadTodayPost() async {
+  Future<void> _loadFeed() async {
     try {
+      final String? userId = await _authStorage.getUserId();
+      if (userId == null) {
+        if (mounted) {
+          setState(() {
+            _todayPost = null;
+            _friendsPosts = [];
+          });
+        }
+        return;
+      }
+
       final response = await http.get(
-        Uri.parse('${Environment.baseUrl}posts/today?user_id=1'),
+        Uri.parse('${Environment.baseUrl}posts/$userId/feed'),
         headers: {'Content-Type': 'application/json'},
       );
 
       if (response.statusCode == 200) {
-        final jsonData = json.decode(response.body);
+        final List<dynamic> feedData = json.decode(response.body);
+
         if (mounted) {
           setState(() {
-            _todayPost = {
-              'id': jsonData['id'],
-              'templateId': jsonData['templateId'],
-              'text': jsonData['text'],
-              'photoPath': jsonData['photoPath'],
-              'timestamp': DateTime.parse(jsonData['created_at']),
-            };
+            if (feedData.isNotEmpty) {
+              final firstPost = feedData[0];
+              _todayPost = {
+                'id': firstPost['id'],
+                'user_id': firstPost['user_id'],
+                'templateId': firstPost['templateId'],
+                'text': firstPost['text'],
+                'photoPath': firstPost['photoPath'],
+                'timestamp': DateTime.parse(firstPost['created_at']),
+                'userName': 'You',
+              };
+
+              _friendsPosts =
+                  feedData.length > 1
+                      ? feedData
+                          .sublist(1)
+                          .map(
+                            (post) => {
+                              'id': post['id'],
+                              'user_id': post['user_id'],
+                              'templateId': post['templateId'],
+                              'text': post['text'],
+                              'photoPath': post['photoPath'],
+                              'timestamp': DateTime.parse(post['created_at']),
+                              'userName':
+                                  'Friend ${post['user_id']}', // TODO: Real username
+                            },
+                          )
+                          .toList()
+                      : [];
+            } else {
+              _todayPost = null;
+              _friendsPosts = [];
+            }
           });
         }
-      } else if (response.statusCode == 204) {
-        if (mounted) setState(() => _todayPost = null);
       } else {
-        print('Today post error: ${response.statusCode} - ${response.body}');
-        if (mounted) setState(() => _todayPost = null);
+        if (mounted) {
+          setState(() {
+            _todayPost = null;
+            _friendsPosts = [];
+          });
+        }
       }
     } catch (e) {
-      print('Error loading today post: $e');
-      if (mounted) setState(() => _todayPost = null);
-    }
-  }
-
-  Future<void> _loadFriendsPosts() async {
-    try {
-      // TODO: Implement friends posts API
-      // For now, empty list
-      setState(() => _friendsPosts = []);
-    } catch (e) {
-      print('Error loading friends posts: $e');
-      setState(() => _friendsPosts = []);
+      if (mounted) {
+        setState(() {
+          _todayPost = null;
+          _friendsPosts = [];
+        });
+      }
     }
   }
 
@@ -95,10 +131,7 @@ class _HomePageState extends State<HomePage> {
     );
 
     if (result != null && mounted) {
-      setState(() {
-        _todayPost = result;
-      });
-      await _loadTodayPost();
+      await _loadFeed();
     }
   }
 
@@ -111,7 +144,7 @@ class _HomePageState extends State<HomePage> {
     final theme = Theme.of(context);
 
     if (_isLoading) {
-      return Scaffold(body: Center(child: CircularProgressIndicator()));
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
     if (_error != null) {
@@ -126,7 +159,7 @@ class _HomePageState extends State<HomePage> {
                 color: theme.colorScheme.error,
               ),
               const SizedBox(height: 16),
-              Text('Failed to load data', style: theme.textTheme.headlineSmall),
+              Text('Failed to load feed', style: theme.textTheme.headlineSmall),
               const SizedBox(height: 8),
               Text(_error!, style: theme.textTheme.bodyMedium),
               const SizedBox(height: 16),
@@ -141,8 +174,6 @@ class _HomePageState extends State<HomePage> {
     }
 
     return Scaffold(
-      // ... rest of your existing Scaffold code remains the same
-      // Just update the ListView.builder itemCount:
       body: RefreshIndicator(
         onRefresh: _refreshPosts,
         child:
@@ -153,12 +184,11 @@ class _HomePageState extends State<HomePage> {
                   itemCount:
                       _friendsPosts.isEmpty ? 2 : 3 + _friendsPosts.length,
                   itemBuilder: (context, index) {
-                    // "Today's Post" header
                     if (index == 0) {
                       return Padding(
                         padding: const EdgeInsets.only(bottom: 16),
                         child: Text(
-                          "Today's Post",
+                          "Your Post",
                           style: theme.textTheme.titleLarge?.copyWith(
                             fontWeight: FontWeight.bold,
                           ),
@@ -166,12 +196,10 @@ class _HomePageState extends State<HomePage> {
                       );
                     }
 
-                    // Today's post card
                     if (index == 1) {
                       return _buildTodayPostCard(theme, _todayPost!);
                     }
 
-                    // "Friends Activity" header (only if friends posts exist)
                     if (_friendsPosts.isNotEmpty && index == 2) {
                       return Padding(
                         padding: const EdgeInsets.only(top: 24, bottom: 16),
@@ -184,15 +212,13 @@ class _HomePageState extends State<HomePage> {
                       );
                     }
 
-                    // Friends' posts
-                    final friendPostIndex =
-                        _friendsPosts.isEmpty ? index - 2 : index - 3;
-                    if (friendPostIndex < _friendsPosts.length) {
+                    final friendIndex = index - 3;
+                    if (friendIndex < _friendsPosts.length) {
                       return Padding(
                         padding: const EdgeInsets.only(bottom: 16),
                         child: _buildFriendPostCard(
                           theme,
-                          _friendsPosts[friendPostIndex],
+                          _friendsPosts[friendIndex],
                         ),
                       );
                     }
@@ -371,8 +397,6 @@ class _HomePageState extends State<HomePage> {
         ),
       ),
     );
-    // Replace: template?.name ?? post['template'] ?? 'Unknown template',
-    // With:     template?.name ?? 'Unknown template',
   }
 
   Widget _buildFriendPostCard(ThemeData theme, Map<String, dynamic> post) {
@@ -381,6 +405,7 @@ class _HomePageState extends State<HomePage> {
         templateId != null
             ? _templateService.getTemplateById(templateId)
             : null;
+    final userName = post['userName'] ?? 'Friend';
 
     return Card(
       elevation: 1,
@@ -396,7 +421,7 @@ class _HomePageState extends State<HomePage> {
                   radius: 20,
                   backgroundColor: theme.colorScheme.primaryContainer,
                   child: Text(
-                    post['userName'][0],
+                    userName.isNotEmpty ? userName[0].toUpperCase() : '?',
                     style: TextStyle(
                       color: theme.colorScheme.onPrimaryContainer,
                       fontWeight: FontWeight.bold,
@@ -409,7 +434,7 @@ class _HomePageState extends State<HomePage> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        post['userName'],
+                        userName,
                         style: theme.textTheme.titleSmall?.copyWith(
                           fontWeight: FontWeight.bold,
                         ),
@@ -457,7 +482,8 @@ class _HomePageState extends State<HomePage> {
             ),
             const SizedBox(height: 12),
             Text(post['text'], style: theme.textTheme.bodyMedium),
-            if (post['photoPath'] != null) ...[
+            if (post['photoPath'] != null &&
+                post['photoPath'].toString().isNotEmpty) ...[
               const SizedBox(height: 8),
               Row(
                 children: [
