@@ -35,6 +35,12 @@ class PostTemplate {
     };
   }
 
-  IconData get iconData =>
-      IconData(int.parse(icon, radix: 16), fontFamily: 'MaterialIcons');
+  IconData get iconData {
+    try {
+      final codePoint = int.parse(icon, radix: 16);
+      return IconData(codePoint, fontFamily: 'MaterialIcons');
+    } catch (e) {
+      return const IconData(0xe88a, fontFamily: 'MaterialIcons');
+    }
+  }
 }
