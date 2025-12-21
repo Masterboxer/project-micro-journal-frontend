@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:project_micro_journal/authentication/services/authentication_token_storage_service.dart';
 import 'package:project_micro_journal/environment/development.dart';
 import 'package:project_micro_journal/templates/template_model.dart';
 import 'package:project_micro_journal/templates/template_service.dart';
@@ -16,6 +17,8 @@ class _CreatePostPageState extends State<CreatePostPage> {
   final TextEditingController _postController = TextEditingController();
   final TemplateService _templateService = TemplateService.instance;
   final ScrollController _scrollController = ScrollController();
+  final AuthenticationTokenStorageService _authStorage =
+      AuthenticationTokenStorageService();
 
   String? _todayPhotoPath;
   PostTemplate? _selectedTemplate;
@@ -75,11 +78,17 @@ class _CreatePostPageState extends State<CreatePostPage> {
     setState(() => _isSubmitting = true);
 
     try {
+      final userId = await _authStorage.getUserId();
+
+      if (userId == null) {
+        throw Exception('User not authenticated. Please log in again.');
+      }
+
       final postData = {
-        'user_id': 1, // TODO: Get from auth/JWT
-        'templateId': _selectedTemplate!.id,
+        'user_id': int.parse(userId),
+        'template_id': _selectedTemplate!.id,
         'text': text,
-        'photoPath': _todayPhotoPath,
+        'photoPath': _todayPhotoPath ?? '',
       };
 
       final response = await http.post(
@@ -90,7 +99,7 @@ class _CreatePostPageState extends State<CreatePostPage> {
 
       if (response.statusCode == 201) {
         final resultData = {
-          'templateId': _selectedTemplate!.id,
+          'template_id': _selectedTemplate!.id,
           'text': text,
           'photoPath': _todayPhotoPath,
           'timestamp': DateTime.now(),
@@ -99,11 +108,45 @@ class _CreatePostPageState extends State<CreatePostPage> {
           Navigator.pop(context, resultData);
         }
       } else {
-        final errorBody = json.decode(response.body);
-        throw Exception(errorBody['message'] ?? 'Failed to create post');
+        String errorMessage = 'Failed to create post';
+
+        try {
+          final errorBody = json.decode(response.body);
+
+          if (errorBody is Map) {
+            errorMessage =
+                errorBody['message'] ??
+                errorBody['error'] ??
+                errorBody['detail'] ??
+                'Server error: ${response.statusCode}';
+          } else if (errorBody is String) {
+            errorMessage = errorBody;
+          }
+        } catch (e) {
+          if (response.body.isNotEmpty) {
+            errorMessage = response.body;
+          } else {
+            errorMessage = 'Server error: ${response.statusCode}';
+          }
+        }
+
+        throw Exception(errorMessage);
       }
     } catch (e) {
-      _showSnackBar('Failed to submit post: $e', Colors.red);
+      String displayMessage;
+
+      if (e.toString().contains('Exception:')) {
+        displayMessage = e.toString().replaceFirst('Exception: ', '');
+      } else if (e.toString().contains('SocketException') ||
+          e.toString().contains('Failed host lookup')) {
+        displayMessage = 'Network error. Please check your connection.';
+      } else if (e.toString().contains('TimeoutException')) {
+        displayMessage = 'Request timeout. Please try again.';
+      } else {
+        displayMessage = e.toString();
+      }
+
+      _showSnackBar(displayMessage, Colors.red);
     } finally {
       if (mounted) {
         setState(() => _isSubmitting = false);
@@ -113,7 +156,19 @@ class _CreatePostPageState extends State<CreatePostPage> {
 
   void _showSnackBar(String message, Color? backgroundColor) {
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message), backgroundColor: backgroundColor),
+      SnackBar(
+        content: Text(message, style: const TextStyle(fontSize: 14)),
+        backgroundColor: backgroundColor,
+        duration: const Duration(seconds: 4),
+        behavior: SnackBarBehavior.floating,
+        action: SnackBarAction(
+          label: 'Dismiss',
+          textColor: Colors.white,
+          onPressed: () {
+            ScaffoldMessenger.of(context).hideCurrentSnackBar();
+          },
+        ),
+      ),
     );
   }
 
@@ -130,12 +185,7 @@ class _CreatePostPageState extends State<CreatePostPage> {
               : _error != null
               ? _buildErrorView(theme)
               : Padding(
-                padding: const EdgeInsets.fromLTRB(
-                  16,
-                  16,
-                  16,
-                  100,
-                ), // Extra bottom padding
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
                 child: _buildComposeView(theme, templates),
               ),
     );
@@ -167,12 +217,11 @@ class _CreatePostPageState extends State<CreatePostPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text("Today's micro-post", style: theme.textTheme.titleLarge),
+          Text("Today's Micro Journal", style: theme.textTheme.titleLarge),
           const SizedBox(height: 8),
           Text('Up to 280 characters.', style: theme.textTheme.bodySmall),
           const SizedBox(height: 24),
 
-          // Template Selection Section - Redesigned
           Text(
             'Choose a template *',
             style: theme.textTheme.titleMedium?.copyWith(
@@ -204,7 +253,6 @@ class _CreatePostPageState extends State<CreatePostPage> {
               ),
             )
           else ...[
-            // Compact Grid Layout
             LayoutBuilder(
               builder: (context, constraints) {
                 final crossAxisCount =
@@ -245,13 +293,11 @@ class _CreatePostPageState extends State<CreatePostPage> {
 
           const SizedBox(height: 24),
 
-          // Selected Template Indicator (Enhanced)
           if (_selectedTemplate != null) ...[
             _buildSelectedTemplateIndicator(theme),
             const SizedBox(height: 20),
           ],
 
-          // Rest of your existing UI (TextField, etc.)
           _buildTextInputSection(theme),
           _buildPhotoSection(theme),
         ],
@@ -500,17 +546,16 @@ class _CreatePostPageState extends State<CreatePostPage> {
             ),
           ),
         ),
-        const SizedBox(height: 40), // Extra space for button prominence
-        // Button with proper hit area
+        const SizedBox(height: 40),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 8.0),
           child: SizedBox(
             width: double.infinity,
-            height: 56, // Fixed height for better touch target
+            height: 56,
             child: ElevatedButton(
               onPressed: _isSubmitting ? null : _submitPost,
               style: ElevatedButton.styleFrom(
-                padding: EdgeInsets.zero, // Remove default padding
+                padding: EdgeInsets.zero,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),
@@ -546,7 +591,7 @@ class _CreatePostPageState extends State<CreatePostPage> {
             ),
           ),
         ),
-        const SizedBox(height: 32), // Safe area padding
+        const SizedBox(height: 32),
       ],
     );
   }

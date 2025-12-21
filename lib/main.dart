@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:project_micro_journal/authentication/pages/signup_page.dart';
 import 'package:project_micro_journal/authentication/services/authentication_token_storage_service.dart';
+import 'package:project_micro_journal/buddies/page/buddies_page.dart';
 import 'package:project_micro_journal/home/pages/home_page.dart';
 
 void main() {
@@ -72,13 +73,7 @@ class _MainAppTabsState extends State<MainAppTabs> {
 
   final List<Widget> _tabs = [
     const HomePage(),
-    const Center(
-      child: Text(
-        'Buddies Page\nComing soon!',
-        textAlign: TextAlign.center,
-        style: TextStyle(fontSize: 18),
-      ),
-    ),
+    const BuddiesPage(),
     const Center(
       child: Text(
         'Profile Page\nComing soon!',
