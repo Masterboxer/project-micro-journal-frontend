@@ -109,9 +109,16 @@ class _HomePageState extends State<HomePage> {
 
   String _formatPostDate(DateTime timestamp) {
     final now = DateTime.now();
+
+    final localTimestamp = timestamp.toLocal();
+
     final today = DateTime(now.year, now.month, now.day);
     final yesterday = today.subtract(const Duration(days: 1));
-    final postDate = DateTime(timestamp.year, timestamp.month, timestamp.day);
+    final postDate = DateTime(
+      localTimestamp.year,
+      localTimestamp.month,
+      localTimestamp.day,
+    );
 
     if (postDate == today) {
       return 'Today';
@@ -136,7 +143,7 @@ class _HomePageState extends State<HomePage> {
           'Nov',
           'Dec',
         ];
-        return '${months[timestamp.month - 1]} ${timestamp.day}';
+        return '${months[localTimestamp.month - 1]} ${localTimestamp.day}';
       }
     }
   }
@@ -581,7 +588,8 @@ class _HomePageState extends State<HomePage> {
 
   String _formatTimestamp(DateTime timestamp) {
     final now = DateTime.now();
-    final difference = now.difference(timestamp);
+    final localTimestamp = timestamp.toLocal();
+    final difference = now.difference(localTimestamp);
 
     if (difference.inHours < 1) {
       return '${difference.inMinutes}m ago';
