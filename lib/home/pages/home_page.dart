@@ -4,6 +4,7 @@ import 'package:http/http.dart' as http;
 import 'package:project_micro_journal/authentication/services/authentication_token_storage_service.dart';
 import 'package:project_micro_journal/environment/development.dart';
 import 'package:project_micro_journal/posts/pages/create_post_page.dart';
+import 'package:project_micro_journal/templates/template_model.dart';
 import 'package:project_micro_journal/templates/template_service.dart';
 
 class HomePage extends StatefulWidget {
@@ -31,11 +32,11 @@ class _HomePageState extends State<HomePage> {
 
   Future<void> _initializeData() async {
     setState(() => _isLoading = true);
+    _error = null;
+
     try {
-      await Future.wait([
-        _templateService.fetchTemplatesFromBackend(),
-        _loadFeed(),
-      ]);
+      await _templateService.fetchTemplatesFromBackend();
+      await _loadFeed();
     } catch (e) {
       setState(() {
         _error = e.toString();
@@ -50,15 +51,7 @@ class _HomePageState extends State<HomePage> {
   Future<void> _loadFeed() async {
     try {
       final String? userId = await _authStorage.getUserId();
-      if (userId == null) {
-        if (mounted) {
-          setState(() {
-            _todayPost = null;
-            _friendsPosts = [];
-          });
-        }
-        return;
-      }
+      if (userId == null) return;
 
       final response = await http.get(
         Uri.parse('${Environment.baseUrl}posts/$userId/feed'),
@@ -75,11 +68,11 @@ class _HomePageState extends State<HomePage> {
               _todayPost = {
                 'id': firstPost['id'],
                 'user_id': firstPost['user_id'],
-                'templateId': firstPost['templateId'],
+                'templateId': firstPost['template_id'],
                 'text': firstPost['text'],
-                'photoPath': firstPost['photoPath'],
+                'photoPath': firstPost['photo_path'],
                 'timestamp': DateTime.parse(firstPost['created_at']),
-                'userName': 'You',
+                'userName': firstPost['display_name'] ?? 'You',
               };
 
               _friendsPosts =
@@ -90,12 +83,14 @@ class _HomePageState extends State<HomePage> {
                             (post) => {
                               'id': post['id'],
                               'user_id': post['user_id'],
-                              'templateId': post['templateId'],
+                              'templateId': post['template_id'],
                               'text': post['text'],
-                              'photoPath': post['photoPath'],
+                              'photoPath': post['photo_path'],
                               'timestamp': DateTime.parse(post['created_at']),
                               'userName':
-                                  'Friend ${post['user_id']}', // TODO: Real username
+                                  post['display_name'] ??
+                                  post['username'] ??
+                                  'Friend',
                             },
                           )
                           .toList()
@@ -106,20 +101,11 @@ class _HomePageState extends State<HomePage> {
             }
           });
         }
-      } else {
-        if (mounted) {
-          setState(() {
-            _todayPost = null;
-            _friendsPosts = [];
-          });
-        }
       }
     } catch (e) {
       if (mounted) {
-        setState(() {
-          _todayPost = null;
-          _friendsPosts = [];
-        });
+        _todayPost = null;
+        _friendsPosts = [];
       }
     }
   }
@@ -279,17 +265,14 @@ class _HomePageState extends State<HomePage> {
 
   Widget _buildTodayPostCard(ThemeData theme, Map<String, dynamic> post) {
     final templateId = post['templateId'] as int?;
-    final template =
+    PostTemplate? template =
         templateId != null
             ? _templateService.getTemplateById(templateId)
             : null;
 
+    final displayName = template?.name;
+
     return Card(
-      elevation: 3,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: BorderSide(color: theme.colorScheme.primary, width: 2),
-      ),
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -332,10 +315,17 @@ class _HomePageState extends State<HomePage> {
                       color: theme.colorScheme.onPrimaryContainer,
                     ),
                     const SizedBox(width: 6),
+                  ] else ...[
+                    Icon(
+                      Icons.help_outline,
+                      size: 16,
+                      color: theme.colorScheme.onPrimaryContainer,
+                    ),
+                    const SizedBox(width: 6),
                   ],
                   Flexible(
                     child: Text(
-                      template?.name ?? post['template'] ?? 'Unknown template',
+                      displayName ?? "Unknown Template",
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: theme.colorScheme.onPrimaryContainer,
                         fontWeight: FontWeight.w600,
