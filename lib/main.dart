@@ -42,21 +42,19 @@ class AuthWrapper extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SafeArea(
-      child: FutureBuilder<String?>(
-        future: AuthenticationTokenStorageService().getAccessToken(),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Scaffold(
-              body: Center(child: CircularProgressIndicator()),
-            );
-          } else if (snapshot.hasData && snapshot.data != null) {
-            return const MainAppTabs();
-          } else {
-            return const SignupPage();
-          }
-        },
-      ),
+    return FutureBuilder<String?>(
+      future: AuthenticationTokenStorageService().getAccessToken(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Scaffold(
+            body: Center(child: CircularProgressIndicator()),
+          );
+        } else if (snapshot.hasData && snapshot.data != null) {
+          return const MainAppTabs();
+        } else {
+          return const SignupPage();
+        }
+      },
     );
   }
 }
@@ -70,6 +68,7 @@ class MainAppTabs extends StatefulWidget {
 
 class _MainAppTabsState extends State<MainAppTabs> {
   int _currentIndex = 0;
+  final GlobalKey<ScaffoldMessengerState> _scaffoldMessengerKey = GlobalKey();
 
   final List<Widget> _tabs = [
     const HomePage(),
@@ -86,7 +85,13 @@ class _MainAppTabsState extends State<MainAppTabs> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: IndexedStack(index: _currentIndex, children: _tabs),
+      key:
+          _scaffoldMessengerKey.currentContext != null
+              ? _scaffoldMessengerKey
+              : null,
+      body: SafeArea(
+        child: IndexedStack(index: _currentIndex, children: _tabs),
+      ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _currentIndex,
         onDestinationSelected: (int index) {

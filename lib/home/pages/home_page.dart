@@ -149,11 +149,9 @@ class _HomePageState extends State<HomePage> {
   }
 
   Future<void> _createNewPost() async {
-    final result = await Navigator.push<Map<String, dynamic>>(
-      context,
+    final result = await Navigator.of(context).push<Map<String, dynamic>>(
       MaterialPageRoute(builder: (context) => const CreatePostPage()),
     );
-
     if (result != null && mounted) {
       await _loadFeed();
     }
@@ -168,101 +166,88 @@ class _HomePageState extends State<HomePage> {
     final theme = Theme.of(context);
 
     if (_isLoading) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+      return const Center(child: CircularProgressIndicator());
     }
 
     if (_error != null) {
-      return Scaffold(
-        body: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                Icons.error_outline,
-                size: 64,
-                color: theme.colorScheme.error,
-              ),
-              const SizedBox(height: 16),
-              Text('Failed to load feed', style: theme.textTheme.headlineSmall),
-              const SizedBox(height: 8),
-              Text(_error!, style: theme.textTheme.bodyMedium),
-              const SizedBox(height: 16),
-              FilledButton(
-                onPressed: _initializeData,
-                child: const Text('Retry'),
-              ),
-            ],
-          ),
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.error_outline, size: 64, color: theme.colorScheme.error),
+            const SizedBox(height: 16),
+            Text('Failed to load feed', style: theme.textTheme.headlineSmall),
+            const SizedBox(height: 8),
+            Text(_error!, style: theme.textTheme.bodyMedium),
+            const SizedBox(height: 16),
+            FilledButton(
+              onPressed: _initializeData,
+              child: const Text('Retry'),
+            ),
+          ],
         ),
       );
     }
 
-    return Scaffold(
-      body: RefreshIndicator(
-        onRefresh: _refreshPosts,
-        child:
-            _userPosts.isEmpty
-                ? _buildEmptyState(theme)
-                : ListView.builder(
-                  padding: const EdgeInsets.all(16),
-                  itemCount:
-                      1 +
-                      _userPosts.length +
-                      (_friendsPosts.isEmpty ? 0 : 1 + _friendsPosts.length),
-                  itemBuilder: (context, index) {
-                    if (index == 0) {
-                      return Padding(
-                        padding: const EdgeInsets.only(bottom: 16),
-                        child: Text(
-                          'Your Posts (${_userPosts.length})',
-                          style: theme.textTheme.titleLarge?.copyWith(
-                            fontWeight: FontWeight.bold,
-                          ),
+    // Return just the content widget, NO SCAFFOLD
+    return RefreshIndicator(
+      onRefresh: _refreshPosts,
+      child:
+          _userPosts.isEmpty
+              ? _buildEmptyState(theme)
+              : ListView.builder(
+                padding: const EdgeInsets.all(16),
+                itemCount:
+                    1 +
+                    _userPosts.length +
+                    (_friendsPosts.isEmpty ? 0 : 1 + _friendsPosts.length),
+                itemBuilder: (context, index) {
+                  if (index == 0) {
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 16),
+                      child: Text(
+                        'Your Posts (${_userPosts.length})',
+                        style: theme.textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.bold,
                         ),
-                      );
-                    }
+                      ),
+                    );
+                  }
 
-                    if (index <= _userPosts.length) {
-                      return Padding(
-                        padding: const EdgeInsets.only(bottom: 16),
-                        child: _buildUserPostCard(theme, _userPosts[index - 1]),
-                      );
-                    }
+                  if (index <= _userPosts.length) {
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 16),
+                      child: _buildUserPostCard(theme, _userPosts[index - 1]),
+                    );
+                  }
 
-                    if (index == _userPosts.length + 1 &&
-                        _friendsPosts.isNotEmpty) {
-                      return Padding(
-                        padding: const EdgeInsets.only(top: 24, bottom: 16),
-                        child: Text(
-                          'Friends Activity (${_friendsPosts.length})',
-                          style: theme.textTheme.titleLarge?.copyWith(
-                            fontWeight: FontWeight.bold,
-                          ),
+                  if (index == _userPosts.length + 1 &&
+                      _friendsPosts.isNotEmpty) {
+                    return Padding(
+                      padding: const EdgeInsets.only(top: 24, bottom: 16),
+                      child: Text(
+                        'Friends Activity (${_friendsPosts.length})',
+                        style: theme.textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.bold,
                         ),
-                      );
-                    }
+                      ),
+                    );
+                  }
 
-                    final friendIndex = index - _userPosts.length - 2;
-                    if (friendIndex >= 0 &&
-                        friendIndex < _friendsPosts.length) {
-                      return Padding(
-                        padding: const EdgeInsets.only(bottom: 16),
-                        child: _buildFriendPostCard(
-                          theme,
-                          _friendsPosts[friendIndex],
-                        ),
-                      );
-                    }
+                  final friendIndex = index - _userPosts.length - 2;
+                  if (friendIndex >= 0 && friendIndex < _friendsPosts.length) {
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 16),
+                      child: _buildFriendPostCard(
+                        theme,
+                        _friendsPosts[friendIndex],
+                      ),
+                    );
+                  }
 
-                    return const SizedBox.shrink();
-                  },
-                ),
-      ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: _createNewPost,
-        icon: const Icon(Icons.add),
-        label: const Text('New Post'),
-      ),
+                  return const SizedBox.shrink();
+                },
+              ),
     );
   }
 
@@ -369,45 +354,40 @@ class _HomePageState extends State<HomePage> {
   }
 
   Widget _buildEmptyState(ThemeData theme) {
-    return RefreshIndicator(
-      onRefresh: _refreshPosts,
-      child: SingleChildScrollView(
-        physics: const AlwaysScrollableScrollPhysics(),
-        child: SizedBox(
-          height: MediaQuery.of(context).size.height - 200,
-          child: Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(
-                  Icons.edit_note_outlined,
-                  size: 80,
-                  color: theme.colorScheme.primary.withOpacity(0.5),
-                ),
-                const SizedBox(height: 24),
-                Text(
-                  'No post yet today',
-                  style: theme.textTheme.headlineSmall?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                Text(
-                  'Share your thoughts and reflections for today',
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 32),
-                FilledButton.icon(
-                  onPressed: _createNewPost,
-                  icon: const Icon(Icons.add),
-                  label: const Text('Create Your First Post'),
-                ),
-              ],
+    return SingleChildScrollView(
+      physics: const AlwaysScrollableScrollPhysics(),
+      child: SizedBox(
+        height: MediaQuery.of(context).size.height - 200, // Keep this
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.edit_note_outlined,
+              size: 80,
+              color: theme.colorScheme.primary.withOpacity(0.5),
             ),
-          ),
+            const SizedBox(height: 24),
+            Text(
+              'No post yet today',
+              style: theme.textTheme.headlineSmall?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'Share your thoughts and reflections for today',
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 32),
+            FilledButton.icon(
+              onPressed: _createNewPost,
+              icon: const Icon(Icons.add),
+              label: const Text('Create Your First Post'),
+            ),
+          ],
         ),
       ),
     );
