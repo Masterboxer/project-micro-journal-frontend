@@ -6,6 +6,7 @@ import 'package:project_micro_journal/buddies/page/buddies_page.dart';
 import 'package:project_micro_journal/firebase_options.dart';
 import 'package:project_micro_journal/home/pages/home_page.dart';
 import 'package:project_micro_journal/posts/pages/create_post_page.dart';
+import 'package:project_micro_journal/profile/pages/profile_page.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -78,13 +79,7 @@ class _MainAppTabsState extends State<MainAppTabs> {
   final List<Widget> _tabs = [
     const HomePage(),
     const BuddiesPage(),
-    const Center(
-      child: Text(
-        'Profile Page\nComing soon!',
-        textAlign: TextAlign.center,
-        style: TextStyle(fontSize: 18),
-      ),
-    ),
+    const ProfilePage(),
   ];
 
   @override
