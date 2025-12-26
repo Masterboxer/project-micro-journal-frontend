@@ -12,6 +12,9 @@
 .swiftpm/
 migrate_working_dir/
 
+#Google API Tokens
+lib/firebase_options.dart
+
 # IntelliJ related
 *.iml
 *.ipr
