@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:http/http.dart' as http;
 import 'package:project_micro_journal/authentication/services/authentication_token_storage_service.dart';
 import 'package:project_micro_journal/environment/development.dart';
@@ -20,6 +21,10 @@ class _HomePageState extends State<HomePage> {
   final AuthenticationTokenStorageService _authStorage =
       AuthenticationTokenStorageService();
   final FirebaseMessaging _firebaseMessaging = FirebaseMessaging.instance;
+
+  final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
+      FlutterLocalNotificationsPlugin();
+
   final environmentVariable = Environment.baseUrl;
 
   List<Map<String, dynamic>> _userPosts = [];
@@ -31,6 +36,7 @@ class _HomePageState extends State<HomePage> {
   void initState() {
     super.initState();
     _initializeData();
+    _initializeLocalNotifications();
     setupPushNotifications();
   }
 
@@ -52,26 +58,53 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
+  Future<void> _initializeLocalNotifications() async {
+    const AndroidInitializationSettings androidSettings =
+        AndroidInitializationSettings('@mipmap/ic_launcher');
+
+    const InitializationSettings settings = InitializationSettings(
+      android: androidSettings,
+    );
+
+    await flutterLocalNotificationsPlugin.initialize(
+      settings,
+      onDidReceiveNotificationResponse: (NotificationResponse response) {
+        print('Notification tapped: ${response.payload}');
+      },
+    );
+
+    const AndroidNotificationChannel channel = AndroidNotificationChannel(
+      'default_notification_channel',
+      'Default Notifications',
+      description: 'This channel is used for important notifications.',
+      importance: Importance.high,
+    );
+
+    await flutterLocalNotificationsPlugin
+        .resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin
+        >()
+        ?.createNotificationChannel(channel);
+  }
+
   Future<void> setupPushNotifications() async {
     await _firebaseMessaging.requestPermission();
 
-    // Get initial token
     final fcmToken = await _firebaseMessaging.getToken();
     print('FCM Token: $fcmToken');
     await sendTokenToBackend(fcmToken);
 
-    // Listen for token refresh
     FirebaseMessaging.instance.onTokenRefresh.listen((newToken) {
       print('FCM Token refreshed: $newToken');
       sendTokenToBackend(newToken);
     });
 
-    // Foreground messages
+    // ADD THIS LINE - call _showNotification
     FirebaseMessaging.onMessage.listen((RemoteMessage message) {
       print('Received message: ${message.notification?.title}');
+      _showNotification(message); // ADD THIS
     });
 
-    // Background tap handler
     FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
       print('Notification tapped: ${message.notification?.title}');
     });
@@ -170,6 +203,31 @@ class _HomePageState extends State<HomePage> {
         });
       }
     }
+  }
+
+  Future<void> _showNotification(RemoteMessage message) async {
+    const AndroidNotificationDetails androidDetails =
+        AndroidNotificationDetails(
+          'default_notification_channel',
+          'Default Notifications',
+          channelDescription:
+              'This channel is used for important notifications.',
+          importance: Importance.high,
+          priority: Priority.high,
+          showWhen: true,
+        );
+
+    const NotificationDetails notificationDetails = NotificationDetails(
+      android: androidDetails,
+    );
+
+    await flutterLocalNotificationsPlugin.show(
+      message.hashCode,
+      message.notification?.title ?? 'New Message',
+      message.notification?.body ?? '',
+      notificationDetails,
+      payload: message.data.toString(),
+    );
   }
 
   String _formatPostDate(DateTime timestamp) {
