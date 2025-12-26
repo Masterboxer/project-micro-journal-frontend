@@ -42,10 +42,8 @@ class _ProfilePageState extends State<ProfilePage> {
         return;
       }
 
-      // Ensure templates are loaded before loading posts
       await _templateService.fetchTemplatesFromBackend();
 
-      // Load user info and posts in parallel
       await Future.wait([_loadUserInfo(userId), _loadUserPosts(userId)]);
     } catch (e) {
       setState(() => _error = e.toString());
@@ -144,7 +142,6 @@ class _ProfilePageState extends State<ProfilePage> {
       );
 
       if (response.statusCode == 200) {
-        // Remove the post from the local list
         setState(() {
           _userPosts.removeWhere((post) => post['id'] == postId);
         });
@@ -509,7 +506,6 @@ class _ProfilePageState extends State<ProfilePage> {
                     color: theme.colorScheme.onSurfaceVariant,
                   ),
                 ),
-                // ADD: Delete button
                 IconButton(
                   icon: Icon(
                     Icons.delete_outline,
