@@ -97,7 +97,6 @@ class _CreatePostPageState extends State<CreatePostPage> {
         body: json.encode(postData),
       );
 
-      // In CreatePostPage _submitPost() method, after successful post creation:
       if (response.statusCode == 201) {
         final responseData = json.decode(response.body);
         final resultData = {
@@ -107,9 +106,6 @@ class _CreatePostPageState extends State<CreatePostPage> {
           'photoPath': _todayPhotoPath,
           'timestamp': DateTime.now(),
         };
-
-        print('✅ CreatePostPage: Post created successfully');
-        print('✅ CreatePostPage: Returning result: $resultData');
 
         if (mounted) {
           Navigator.pop(context, resultData);

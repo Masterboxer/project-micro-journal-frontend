@@ -135,31 +135,18 @@ class HomePageState extends State<HomePage> {
 
       final int userId = int.parse(userIdStr);
 
-      print('=== LOADING FEED ===');
-      print('User ID: $userId');
-      print('Requesting: ${Environment.baseUrl}posts/$userIdStr/feed');
-
       final response = await http.get(
         Uri.parse('${Environment.baseUrl}posts/$userIdStr/feed'),
         headers: {'Content-Type': 'application/json'},
       );
 
-      print('Feed Response Status: ${response.statusCode}');
-      print('Feed Response Body: ${response.body}');
-
       if (response.statusCode == 200) {
         final List<dynamic> feedData = json.decode(response.body);
-
-        print('Total posts in feed: ${feedData.length}');
 
         final userPosts = <Map<String, dynamic>>[];
         final buddyPosts = <Map<String, dynamic>>[];
 
         for (final post in feedData) {
-          print(
-            'Processing post ID: ${post['id']}, user_id: ${post['user_id']}',
-          );
-
           final postMap = {
             'id': post['id'],
             'user_id': post['user_id'],
@@ -175,17 +162,10 @@ class HomePageState extends State<HomePage> {
 
           if ((post['user_id'] as int) == userId) {
             userPosts.add(postMap);
-            print('Added to userPosts');
           } else {
             buddyPosts.add(postMap);
-            print('Added to buddyPosts');
           }
         }
-
-        print(
-          'Final count - User posts: ${userPosts.length}, Friend posts: ${buddyPosts.length}',
-        );
-        print('=== FEED LOADING COMPLETE ===\n');
 
         if (mounted) {
           setState(() {
@@ -198,7 +178,6 @@ class HomePageState extends State<HomePage> {
         throw Exception('Failed to load feed: ${response.statusCode}');
       }
     } catch (e) {
-      print('ERROR in _loadFeed: $e');
       if (mounted) {
         setState(() {
           _error = 'Error loading feed: $e';
@@ -372,31 +351,19 @@ class HomePageState extends State<HomePage> {
   }
 
   Future<void> createNewPost() async {
-    print(
-      '🟢 _createNewPost called',
-    ); // First thing - check if method is called
-
     final result = await Navigator.of(context).push<Map<String, dynamic>>(
       MaterialPageRoute(builder: (context) => const CreatePostPage()),
     );
 
-    print('🟡 Returned from CreatePostPage');
-    print('🟡 Result: $result');
-    print('🟡 Mounted: $mounted');
-
     if (result == null) {
-      print('🔴 Result is null - post creation was cancelled or failed');
       return;
     }
 
     if (!mounted) {
-      print('🔴 Widget not mounted, cannot update state');
       return;
     }
 
     final createdPostId = result['id'];
-    print('✅ Post created with ID: $createdPostId');
-    print('✅ Refreshing feed...');
 
     setState(() => _isLoading = true);
 
@@ -406,14 +373,9 @@ class HomePageState extends State<HomePage> {
       if (mounted) {
         setState(() => _isLoading = false);
 
-        // Verify the new post is in the feed
         final newPostExists = _userPosts.any(
           (post) => post['id'] == createdPostId,
         );
-
-        print('✅ Post found in feed: $newPostExists');
-        print('✅ Total user posts: ${_userPosts.length}');
-        print('✅ Total friend posts: ${_friendsPosts.length}');
 
         if (newPostExists) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -431,7 +393,6 @@ class HomePageState extends State<HomePage> {
             ),
           );
         } else {
-          print('⚠️ Warning: New post not found in feed yet');
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(
@@ -450,8 +411,6 @@ class HomePageState extends State<HomePage> {
         }
       }
     } catch (e) {
-      print('🔴 Error refreshing feed: $e');
-
       if (mounted) {
         setState(() => _isLoading = false);
 
