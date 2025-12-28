@@ -31,6 +31,7 @@ class _HomePageState extends State<HomePage> {
   List<Map<String, dynamic>> _friendsPosts = [];
   bool _isLoading = true;
   String? _error;
+  int? _currentUserId;
 
   @override
   void initState() {
@@ -45,6 +46,11 @@ class _HomePageState extends State<HomePage> {
     _error = null;
 
     try {
+      final String? userIdStr = await _authStorage.getUserId();
+      if (userIdStr != null) {
+        _currentUserId = int.parse(userIdStr);
+      }
+
       await _templateService.fetchTemplatesFromBackend();
       await _loadFeed();
     } catch (e) {
@@ -94,6 +100,12 @@ class _HomePageState extends State<HomePage> {
 
     FirebaseMessaging.onMessage.listen((RemoteMessage message) {
       _showNotification(message);
+
+      if (message.data['type'] == 'post_like' ||
+          message.data['type'] == 'post_comment' ||
+          message.data['type'] == 'new_post') {
+        _loadFeed();
+      }
     });
   }
 
@@ -143,6 +155,9 @@ class _HomePageState extends State<HomePage> {
             'photoPath': post['photo_path'],
             'timestamp': DateTime.parse(post['created_at']),
             'userName': post['display_name'] ?? post['username'] ?? 'User',
+            'like_count': post['like_count'] ?? 0,
+            'comment_count': post['comment_count'] ?? 0,
+            'is_liked_by_user': post['is_liked_by_user'] ?? false,
           };
 
           if ((post['user_id'] as int) == userId) {
@@ -166,6 +181,106 @@ class _HomePageState extends State<HomePage> {
         setState(() {
           _error = 'Error loading feed: $e';
         });
+      }
+    }
+  }
+
+  Future<void> _toggleLike(int postId) async {
+    if (_currentUserId == null) return;
+
+    try {
+      final response = await http.post(
+        Uri.parse('${Environment.baseUrl}posts/$postId/like'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'user_id': _currentUserId}),
+      );
+
+      if (response.statusCode == 200) {
+        await _loadFeed();
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error toggling like: $e')));
+      }
+    }
+  }
+
+  Future<void> _showCommentsSheet(Map<String, dynamic> post) async {
+    if (_currentUserId == null) return;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder:
+          (context) => CommentsBottomSheet(
+            postId: post['id'],
+            currentUserId: _currentUserId!,
+            onCommentAdded: () => _loadFeed(),
+          ),
+    );
+  }
+
+  Future<void> _showLikesList(int postId) async {
+    try {
+      final response = await http.get(
+        Uri.parse('${Environment.baseUrl}posts/$postId/likes'),
+        headers: {'Content-Type': 'application/json'},
+      );
+
+      if (response.statusCode == 200) {
+        final List<dynamic> likes = json.decode(response.body);
+
+        if (!mounted) return;
+
+        showDialog(
+          context: context,
+          builder:
+              (context) => AlertDialog(
+                title: Text('Likes (${likes.length})'),
+                content:
+                    likes.isEmpty
+                        ? const Text('No likes yet')
+                        : SizedBox(
+                          width: double.maxFinite,
+                          child: ListView.builder(
+                            shrinkWrap: true,
+                            itemCount: likes.length,
+                            itemBuilder: (context, index) {
+                              final like = likes[index];
+                              return ListTile(
+                                leading: CircleAvatar(
+                                  child: Text(
+                                    (like['display_name'] ?? 'U')[0]
+                                        .toUpperCase(),
+                                  ),
+                                ),
+                                title: Text(like['display_name'] ?? 'Unknown'),
+                                subtitle: Text(
+                                  '@${like['username'] ?? 'unknown'}',
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text('Close'),
+                  ),
+                ],
+              ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error loading likes: $e')));
       }
     }
   }
@@ -197,9 +312,7 @@ class _HomePageState extends State<HomePage> {
 
   String _formatPostDate(DateTime timestamp) {
     final now = DateTime.now();
-
     final localTimestamp = timestamp.toLocal();
-
     final today = DateTime(now.year, now.month, now.day);
     final yesterday = today.subtract(const Duration(days: 1));
     final postDate = DateTime(
@@ -353,6 +466,9 @@ class _HomePageState extends State<HomePage> {
             : null;
     final displayName = template?.name ?? 'Reflection';
     final timestamp = post['timestamp'] as DateTime;
+    final likeCount = post['like_count'] as int;
+    final commentCount = post['comment_count'] as int;
+    final isLiked = post['is_liked_by_user'] as bool;
 
     return Card(
       child: Padding(
@@ -392,21 +508,12 @@ class _HomePageState extends State<HomePage> {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  if (template != null) ...[
-                    Icon(
-                      template.iconData,
-                      size: 16,
-                      color: theme.colorScheme.onPrimaryContainer,
-                    ),
-                    const SizedBox(width: 6),
-                  ] else ...[
-                    Icon(
-                      Icons.help_outline,
-                      size: 16,
-                      color: theme.colorScheme.onPrimaryContainer,
-                    ),
-                    const SizedBox(width: 6),
-                  ],
+                  Icon(
+                    template?.iconData ?? Icons.help_outline,
+                    size: 16,
+                    color: theme.colorScheme.onPrimaryContainer,
+                  ),
+                  const SizedBox(width: 6),
                   Flexible(
                     child: Text(
                       displayName,
@@ -441,114 +548,71 @@ class _HomePageState extends State<HomePage> {
                 ],
               ),
             ],
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildEmptyState(ThemeData theme) {
-    return SingleChildScrollView(
-      physics: const AlwaysScrollableScrollPhysics(),
-      child: SizedBox(
-        height: MediaQuery.of(context).size.height - 200,
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.edit_note_outlined,
-              size: 80,
-              color: theme.colorScheme.primary.withOpacity(0.5),
-            ),
-            const SizedBox(height: 24),
-            Text(
-              'No post yet today',
-              style: theme.textTheme.headlineSmall?.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
-            ),
             const SizedBox(height: 12),
-            Text(
-              'Share your thoughts and reflections for today',
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 32),
-            FilledButton.icon(
-              onPressed: _createNewPost,
-              icon: const Icon(Icons.add),
-              label: const Text('Create Your First Post'),
+            const Divider(),
+            Row(
+              children: [
+                InkWell(
+                  onTap: () => _toggleLike(post['id']),
+                  borderRadius: BorderRadius.circular(20),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          isLiked ? Icons.favorite : Icons.favorite_border,
+                          size: 20,
+                          color:
+                              isLiked
+                                  ? Colors.red
+                                  : theme.colorScheme.onSurfaceVariant,
+                        ),
+                        const SizedBox(width: 4),
+                        Text('$likeCount', style: theme.textTheme.bodyMedium),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 16),
+                InkWell(
+                  onTap: () => _showCommentsSheet(post),
+                  borderRadius: BorderRadius.circular(20),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.comment_outlined,
+                          size: 20,
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          '$commentCount',
+                          style: theme.textTheme.bodyMedium,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const Spacer(),
+                if (likeCount > 0)
+                  TextButton(
+                    onPressed: () => _showLikesList(post['id']),
+                    child: const Text('View Likes'),
+                  ),
+              ],
             ),
           ],
         ),
       ),
     );
-  }
-
-  Future<void> _deletePost(int postId) async {
-    final theme = Theme.of(context);
-
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder:
-          (context) => AlertDialog(
-            title: const Text('Delete Post'),
-            content: const Text(
-              'Are you sure you want to delete this post? This action cannot be undone.',
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context, false),
-                child: const Text('Cancel'),
-              ),
-              FilledButton(
-                style: FilledButton.styleFrom(
-                  backgroundColor: theme.colorScheme.error,
-                ),
-                onPressed: () => Navigator.pop(context, true),
-                child: const Text(
-                  'Delete',
-                  style: TextStyle(color: Colors.white),
-                ),
-              ),
-            ],
-          ),
-    );
-
-    if (confirm == true && mounted) {
-      try {
-        final response = await http.delete(
-          Uri.parse('${Environment.baseUrl}posts/$postId'),
-          headers: {'Content-Type': 'application/json'},
-        );
-
-        if (response.statusCode == 200) {
-          await _initializeData();
-          if (mounted) {
-            ScaffoldMessenger.maybeOf(context)?.showSnackBar(
-              const SnackBar(content: Text('Post deleted successfully')),
-            );
-          }
-        } else {
-          if (mounted) {
-            ScaffoldMessenger.maybeOf(context)?.showSnackBar(
-              SnackBar(
-                content: Text('Failed to delete post'),
-                backgroundColor: Colors.red,
-              ),
-            );
-          }
-        }
-      } catch (e) {
-        if (mounted) {
-          ScaffoldMessenger.maybeOf(context)?.showSnackBar(
-            SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
-          );
-        }
-      }
-    }
   }
 
   Widget _buildFriendPostCard(ThemeData theme, Map<String, dynamic> post) {
@@ -558,6 +622,9 @@ class _HomePageState extends State<HomePage> {
             ? _templateService.getTemplateById(templateId)
             : null;
     final userName = post['userName'] ?? 'Friend';
+    final likeCount = post['like_count'] as int;
+    final commentCount = post['comment_count'] as int;
+    final isLiked = post['is_liked_by_user'] as bool;
 
     return Card(
       elevation: 1,
@@ -654,10 +721,175 @@ class _HomePageState extends State<HomePage> {
                 ],
               ),
             ],
+            const SizedBox(height: 12),
+            const Divider(),
+            Row(
+              children: [
+                InkWell(
+                  onTap: () => _toggleLike(post['id']),
+                  borderRadius: BorderRadius.circular(20),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          isLiked ? Icons.favorite : Icons.favorite_border,
+                          size: 20,
+                          color:
+                              isLiked
+                                  ? Colors.red
+                                  : theme.colorScheme.onSurfaceVariant,
+                        ),
+                        const SizedBox(width: 4),
+                        Text('$likeCount', style: theme.textTheme.bodyMedium),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 16),
+                InkWell(
+                  onTap: () => _showCommentsSheet(post),
+                  borderRadius: BorderRadius.circular(20),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.comment_outlined,
+                          size: 20,
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          '$commentCount',
+                          style: theme.textTheme.bodyMedium,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const Spacer(),
+                if (likeCount > 0)
+                  TextButton(
+                    onPressed: () => _showLikesList(post['id']),
+                    child: const Text('View Likes'),
+                  ),
+              ],
+            ),
           ],
         ),
       ),
     );
+  }
+
+  Widget _buildEmptyState(ThemeData theme) {
+    return SingleChildScrollView(
+      physics: const AlwaysScrollableScrollPhysics(),
+      child: SizedBox(
+        height: MediaQuery.of(context).size.height - 200,
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.edit_note_outlined,
+              size: 80,
+              color: theme.colorScheme.primary.withOpacity(0.5),
+            ),
+            const SizedBox(height: 24),
+            Text(
+              'No post yet today',
+              style: theme.textTheme.headlineSmall?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'Share your thoughts and reflections for today',
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 32),
+            FilledButton.icon(
+              onPressed: _createNewPost,
+              icon: const Icon(Icons.add),
+              label: const Text('Create Your First Post'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _deletePost(int postId) async {
+    final theme = Theme.of(context);
+
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder:
+          (context) => AlertDialog(
+            title: const Text('Delete Post'),
+            content: const Text(
+              'Are you sure you want to delete this post? This action cannot be undone.',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('Cancel'),
+              ),
+              FilledButton(
+                style: FilledButton.styleFrom(
+                  backgroundColor: theme.colorScheme.error,
+                ),
+                onPressed: () => Navigator.pop(context, true),
+                child: const Text(
+                  'Delete',
+                  style: TextStyle(color: Colors.white),
+                ),
+              ),
+            ],
+          ),
+    );
+
+    if (confirm == true && mounted) {
+      try {
+        final response = await http.delete(
+          Uri.parse('${Environment.baseUrl}posts/$postId'),
+          headers: {'Content-Type': 'application/json'},
+        );
+
+        if (response.statusCode == 200) {
+          await _initializeData();
+          if (mounted) {
+            ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+              const SnackBar(content: Text('Post deleted successfully')),
+            );
+          }
+        } else {
+          if (mounted) {
+            ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+              const SnackBar(
+                content: Text('Failed to delete post'),
+                backgroundColor: Colors.red,
+              ),
+            );
+          }
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+            SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+          );
+        }
+      }
+    }
   }
 
   String _formatTimestamp(DateTime timestamp) {
@@ -672,5 +904,275 @@ class _HomePageState extends State<HomePage> {
     } else {
       return '${difference.inDays}d ago';
     }
+  }
+}
+
+class CommentsBottomSheet extends StatefulWidget {
+  final int postId;
+  final int currentUserId;
+  final VoidCallback onCommentAdded;
+
+  const CommentsBottomSheet({
+    super.key,
+    required this.postId,
+    required this.currentUserId,
+    required this.onCommentAdded,
+  });
+
+  @override
+  State<CommentsBottomSheet> createState() => _CommentsBottomSheetState();
+}
+
+class _CommentsBottomSheetState extends State<CommentsBottomSheet> {
+  final TextEditingController _commentController = TextEditingController();
+  List<Map<String, dynamic>> _comments = [];
+  bool _isLoading = true;
+  bool _isSending = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadComments();
+  }
+
+  Future<void> _loadComments() async {
+    try {
+      final response = await http.get(
+        Uri.parse('${Environment.baseUrl}posts/${widget.postId}/comments'),
+        headers: {'Content-Type': 'application/json'},
+      );
+
+      if (response.statusCode == 200) {
+        final List<dynamic> commentsData = json.decode(response.body);
+        if (mounted) {
+          setState(() {
+            _comments = commentsData.cast<Map<String, dynamic>>();
+            _isLoading = false;
+          });
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isLoading = false);
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error loading comments: $e')));
+      }
+    }
+  }
+
+  Future<void> _postComment() async {
+    if (_commentController.text.trim().isEmpty) return;
+
+    setState(() => _isSending = true);
+
+    try {
+      final response = await http.post(
+        Uri.parse('${Environment.baseUrl}posts/${widget.postId}/comments'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'user_id': widget.currentUserId,
+          'text': _commentController.text.trim(),
+        }),
+      );
+
+      if (response.statusCode == 201) {
+        _commentController.clear();
+        await _loadComments();
+        widget.onCommentAdded();
+
+        if (mounted) {
+          FocusScope.of(context).unfocus();
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error posting comment: $e')));
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isSending = false);
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return DraggableScrollableSheet(
+      initialChildSize: 0.7,
+      minChildSize: 0.5,
+      maxChildSize: 0.95,
+      expand: false,
+      builder: (context, scrollController) {
+        return Column(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: theme.colorScheme.surface,
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(20),
+                ),
+              ),
+              child: Row(
+                children: [
+                  Text(
+                    'Comments (${_comments.length})',
+                    style: theme.textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const Spacer(),
+                  IconButton(
+                    onPressed: () => Navigator.pop(context),
+                    icon: const Icon(Icons.close),
+                  ),
+                ],
+              ),
+            ),
+            const Divider(height: 1),
+            Expanded(
+              child:
+                  _isLoading
+                      ? const Center(child: CircularProgressIndicator())
+                      : _comments.isEmpty
+                      ? Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.comment_outlined,
+                              size: 64,
+                              color: theme.colorScheme.onSurfaceVariant
+                                  .withOpacity(0.5),
+                            ),
+                            const SizedBox(height: 16),
+                            Text(
+                              'No comments yet',
+                              style: theme.textTheme.bodyLarge?.copyWith(
+                                color: theme.colorScheme.onSurfaceVariant,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              'Be the first to comment!',
+                              style: theme.textTheme.bodyMedium?.copyWith(
+                                color: theme.colorScheme.onSurfaceVariant,
+                              ),
+                            ),
+                          ],
+                        ),
+                      )
+                      : ListView.builder(
+                        controller: scrollController,
+                        itemCount: _comments.length,
+                        itemBuilder: (context, index) {
+                          final comment = _comments[index];
+                          return ListTile(
+                            leading: CircleAvatar(
+                              child: Text(
+                                (comment['display_name'] ?? 'U')[0]
+                                    .toUpperCase(),
+                              ),
+                            ),
+                            title: Text(
+                              comment['display_name'] ?? 'Unknown',
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            subtitle: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(comment['text']),
+                                const SizedBox(height: 4),
+                                Text(
+                                  _formatCommentTime(comment['created_at']),
+                                  style: theme.textTheme.bodySmall?.copyWith(
+                                    color: theme.colorScheme.onSurfaceVariant,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            isThreeLine: true,
+                          );
+                        },
+                      ),
+            ),
+            const Divider(height: 1),
+            Container(
+              padding: EdgeInsets.only(
+                left: 16,
+                right: 16,
+                top: 8,
+                bottom: MediaQuery.of(context).viewInsets.bottom + 8,
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: _commentController,
+                      maxLength: 500,
+                      maxLines: null,
+                      decoration: InputDecoration(
+                        hintText: 'Write a comment...',
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(24),
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 12,
+                        ),
+                        counterText: '',
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  IconButton.filled(
+                    onPressed: _isSending ? null : _postComment,
+                    icon:
+                        _isSending
+                            ? const SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                            : const Icon(Icons.send),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  String _formatCommentTime(String timestamp) {
+    final dateTime = DateTime.parse(timestamp);
+    final now = DateTime.now();
+    final difference = now.difference(dateTime);
+
+    if (difference.inMinutes < 1) {
+      return 'Just now';
+    } else if (difference.inHours < 1) {
+      return '${difference.inMinutes}m ago';
+    } else if (difference.inDays < 1) {
+      return '${difference.inHours}h ago';
+    } else if (difference.inDays < 7) {
+      return '${difference.inDays}d ago';
+    } else {
+      return '${dateTime.day}/${dateTime.month}/${dateTime.year}';
+    }
+  }
+
+  @override
+  void dispose() {
+    _commentController.dispose();
+    super.dispose();
   }
 }
