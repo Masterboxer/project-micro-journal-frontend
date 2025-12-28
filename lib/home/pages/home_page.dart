@@ -943,17 +943,37 @@ class _CommentsBottomSheetState extends State<CommentsBottomSheet> {
       );
 
       if (response.statusCode == 200) {
-        final List<dynamic> commentsData = json.decode(response.body);
+        final dynamic responseBody = json.decode(response.body);
+
+        List<Map<String, dynamic>> commentsData;
+        if (responseBody == null) {
+          commentsData = [];
+        } else if (responseBody is List) {
+          commentsData = responseBody.cast<Map<String, dynamic>>();
+        } else {
+          commentsData = [];
+        }
+
         if (mounted) {
           setState(() {
-            _comments = commentsData.cast<Map<String, dynamic>>();
+            _comments = commentsData;
+            _isLoading = false;
+          });
+        }
+      } else {
+        if (mounted) {
+          setState(() {
+            _comments = [];
             _isLoading = false;
           });
         }
       }
     } catch (e) {
       if (mounted) {
-        setState(() => _isLoading = false);
+        setState(() {
+          _comments = [];
+          _isLoading = false;
+        });
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text('Error loading comments: $e')));
