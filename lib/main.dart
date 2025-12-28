@@ -5,7 +5,6 @@ import 'package:project_micro_journal/authentication/services/authentication_tok
 import 'package:project_micro_journal/buddies/page/buddies_page.dart';
 import 'package:project_micro_journal/firebase_options.dart';
 import 'package:project_micro_journal/home/pages/home_page.dart';
-import 'package:project_micro_journal/posts/pages/create_post_page.dart';
 import 'package:project_micro_journal/profile/pages/profile_page.dart';
 
 Future<void> main() async {
@@ -75,12 +74,19 @@ class MainAppTabs extends StatefulWidget {
 class _MainAppTabsState extends State<MainAppTabs> {
   int _currentIndex = 0;
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
+  final GlobalKey<HomePageState> _homePageKey = GlobalKey<HomePageState>();
 
-  final List<Widget> _tabs = [
-    const HomePage(),
-    const BuddiesPage(),
-    const ProfilePage(),
-  ];
+  late final List<Widget> _tabs;
+
+  @override
+  void initState() {
+    super.initState();
+    _tabs = [
+      HomePage(key: _homePageKey),
+      const BuddiesPage(),
+      const ProfilePage(),
+    ];
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -123,11 +129,7 @@ class _MainAppTabsState extends State<MainAppTabs> {
           _currentIndex == 0
               ? FloatingActionButton.extended(
                 onPressed: () {
-                  Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (context) => const CreatePostPage(),
-                    ),
-                  );
+                  _homePageKey.currentState?.createNewPost();
                 },
                 icon: const Icon(Icons.add),
                 label: const Text('New Post'),
