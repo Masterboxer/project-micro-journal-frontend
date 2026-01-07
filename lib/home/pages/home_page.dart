@@ -5,6 +5,7 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:http/http.dart' as http;
 import 'package:project_micro_journal/authentication/services/authentication_token_storage_service.dart';
 import 'package:project_micro_journal/environment/development.dart';
+import 'package:project_micro_journal/home/models/streak.dart';
 import 'package:project_micro_journal/posts/pages/create_post_page.dart';
 import 'package:project_micro_journal/templates/template_model.dart';
 import 'package:project_micro_journal/templates/template_service.dart';
@@ -29,6 +30,7 @@ class HomePageState extends State<HomePage> {
 
   List<Map<String, dynamic>> _userPosts = [];
   List<Map<String, dynamic>> _friendsPosts = [];
+  PersonalStreak? _streak;
   bool _isLoading = true;
   String? _error;
   int? _currentUserId;
@@ -52,7 +54,7 @@ class HomePageState extends State<HomePage> {
       }
 
       await _templateService.fetchTemplatesFromBackend();
-      await _loadFeed();
+      await Future.wait([_loadFeed(), _loadStreak()]);
     } catch (e) {
       setState(() {
         _error = e.toString();
@@ -184,6 +186,32 @@ class HomePageState extends State<HomePage> {
           _error = 'Error loading feed: $e';
         });
       }
+    }
+  }
+
+  Future<void> _loadStreak() async {
+    if (_currentUserId == null) return;
+
+    try {
+      final String? token = await _authStorage.getAccessToken();
+      final response = await http.get(
+        Uri.parse('$environmentVariable/users/$_currentUserId/streak'),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        if (data['exists'] == false) {
+          setState(() => _streak = null);
+        } else {
+          setState(() => _streak = PersonalStreak.fromJson(data));
+        }
+      }
+    } catch (e) {
+      print('Error loading streak: $e');
     }
   }
 
@@ -481,64 +509,51 @@ class HomePageState extends State<HomePage> {
 
     return RefreshIndicator(
       onRefresh: _refreshPosts,
-      child: ListView.builder(
+      child: ListView(
         padding: const EdgeInsets.all(16),
-        itemCount:
-            (_userPosts.isEmpty ? 0 : 1 + _userPosts.length) +
-            (_friendsPosts.isEmpty ? 0 : 1 + _friendsPosts.length),
-        itemBuilder: (context, index) {
-          int currentIndex = index;
+        children: [
+          // Add streaks section at the top
+          _buildStreakSection(),
+          const SizedBox(height: 24),
 
-          if (_userPosts.isNotEmpty) {
-            if (currentIndex == 0) {
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 16),
-                child: Text(
-                  'Your Posts (${_userPosts.length})',
-                  style: theme.textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.bold,
+          // Your existing posts sections
+          if (_userPosts.isNotEmpty) ...[
+            Text(
+              'Your Posts (${_userPosts.length})',
+              style: theme.textTheme.titleLarge?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 16),
+            ..._userPosts
+                .map(
+                  (post) => Padding(
+                    padding: const EdgeInsets.only(bottom: 16),
+                    child: _buildUserPostCard(theme, post),
                   ),
-                ),
-              );
-            }
+                )
+                .toList(), // ← Add .toList() here
+            const SizedBox(height: 24),
+          ],
 
-            if (currentIndex <= _userPosts.length) {
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 16),
-                child: _buildUserPostCard(theme, _userPosts[currentIndex - 1]),
-              );
-            }
-
-            currentIndex -= (_userPosts.length + 1);
-          }
-
-          if (_friendsPosts.isNotEmpty) {
-            if (currentIndex == 0) {
-              return Padding(
-                padding: EdgeInsets.only(
-                  top: _userPosts.isEmpty ? 0 : 24,
-                  bottom: 16,
-                ),
-                child: Text(
-                  'Friends Activity (${_friendsPosts.length})',
-                  style: theme.textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.bold,
+          if (_friendsPosts.isNotEmpty) ...[
+            Text(
+              'Friends Activity (${_friendsPosts.length})',
+              style: theme.textTheme.titleLarge?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 16),
+            ..._friendsPosts
+                .map(
+                  (post) => Padding(
+                    padding: const EdgeInsets.only(bottom: 16),
+                    child: _buildFriendPostCard(theme, post),
                   ),
-                ),
-              );
-            }
-
-            final friendIndex = currentIndex - 1;
-            if (friendIndex >= 0 && friendIndex < _friendsPosts.length) {
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 16),
-                child: _buildFriendPostCard(theme, _friendsPosts[friendIndex]),
-              );
-            }
-          }
-
-          return const SizedBox.shrink();
-        },
+                )
+                .toList(),
+          ],
+        ],
       ),
     );
   }
@@ -872,6 +887,129 @@ class HomePageState extends State<HomePage> {
       ),
     );
   }
+
+  Widget _buildStreakSection() {
+    return Card(
+      margin: const EdgeInsets.all(16),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          children: [
+            Icon(
+              Icons.local_fire_department,
+              color:
+                  _streak != null && _streak!.streakCount > 0
+                      ? Colors.orange
+                      : Colors.grey,
+              size: 48,
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '${_streak?.streakCount ?? 0} Day Streak',
+                    style: const TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  Text(
+                    'Longest: ${_streak?.longestStreak ?? 0} days',
+                    style: TextStyle(color: Colors.grey[600]),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // Widget _buildStreakCard(StreakWithUser streak) {
+  //   final color = streak.isActive ? Colors.orange : Colors.grey;
+  //   final needsAttention = streak.needsSelfPost && !streak.needsOtherPost;
+
+  //   return Container(
+  //     width: 140,
+  //     margin: const EdgeInsets.symmetric(horizontal: 4),
+  //     child: Card(
+  //       elevation: 2,
+  //       shape: RoundedRectangleBorder(
+  //         borderRadius: BorderRadius.circular(12),
+  //         side: BorderSide(
+  //           color: needsAttention ? Colors.red.shade300 : Colors.transparent,
+  //           width: 2,
+  //         ),
+  //       ),
+  //       child: Padding(
+  //         padding: const EdgeInsets.all(12),
+  //         child: Column(
+  //           mainAxisAlignment: MainAxisAlignment.center,
+  //           children: [
+  //             CircleAvatar(
+  //               radius: 24,
+  //               backgroundColor: color.withOpacity(0.2),
+  //               child: Text(
+  //                 streak.otherDisplayName.isNotEmpty
+  //                     ? streak.otherDisplayName[0].toUpperCase()
+  //                     : streak.otherUsername[0].toUpperCase(),
+  //                 style: TextStyle(
+  //                   color: color,
+  //                   fontWeight: FontWeight.bold,
+  //                   fontSize: 20,
+  //                 ),
+  //               ),
+  //             ),
+  //             const SizedBox(height: 8),
+  //             Text(
+  //               streak.otherDisplayName.isNotEmpty
+  //                   ? streak.otherDisplayName
+  //                   : streak.otherUsername,
+  //               style: const TextStyle(
+  //                 fontWeight: FontWeight.w600,
+  //                 fontSize: 12,
+  //               ),
+  //               maxLines: 1,
+  //               overflow: TextOverflow.ellipsis,
+  //               textAlign: TextAlign.center,
+  //             ),
+  //             const SizedBox(height: 4),
+  //             Row(
+  //               mainAxisAlignment: MainAxisAlignment.center,
+  //               children: [
+  //                 Icon(Icons.local_fire_department, color: color, size: 16),
+  //                 const SizedBox(width: 4),
+  //                 Text(
+  //                   '${streak.streakCount}',
+  //                   style: TextStyle(
+  //                     color: color,
+  //                     fontWeight: FontWeight.bold,
+  //                     fontSize: 16,
+  //                   ),
+  //                 ),
+  //               ],
+  //             ),
+  //             if (needsAttention)
+  //               const Padding(
+  //                 padding: EdgeInsets.only(top: 4),
+  //                 child: Text(
+  //                   'Your turn!',
+  //                   style: TextStyle(
+  //                     color: Colors.red,
+  //                     fontSize: 10,
+  //                     fontWeight: FontWeight.w600,
+  //                   ),
+  //                 ),
+  //               ),
+  //           ],
+  //         ),
+  //       ),
+  //     ),
+  //   );
+  // }
 
   Widget _buildEmptyState(ThemeData theme) {
     return SingleChildScrollView(
