@@ -141,7 +141,8 @@ class HomePageState extends State<HomePage> {
       );
 
       if (response.statusCode == 200) {
-        final List<dynamic> feedData = json.decode(response.body);
+        final dynamic responseBody = json.decode(response.body);
+        final List<dynamic> feedData = responseBody is List ? responseBody : [];
 
         final userPosts = <Map<String, dynamic>>[];
         final buddyPosts = <Map<String, dynamic>>[];
