@@ -115,7 +115,7 @@ class _MainAppTabsState extends State<MainAppTabs> {
             NavigationDestination(
               icon: Icon(Icons.people_outlined),
               selectedIcon: Icon(Icons.people),
-              label: 'Buddies',
+              label: 'Followers',
             ),
             NavigationDestination(
               icon: Icon(Icons.person_outlined),
