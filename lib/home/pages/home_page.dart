@@ -384,20 +384,20 @@ class HomePageState extends State<HomePage> {
       MaterialPageRoute(builder: (context) => const CreatePostPage()),
     );
 
-    if (result == null) {
-      return;
-    }
-
-    if (!mounted) {
-      return;
-    }
+    if (result == null) return;
+    if (!mounted) return;
 
     final createdPostId = result['id'];
+    final shouldReloadStreak = result['should_reload_streak'] ?? false;
 
     setState(() => _isLoading = true);
 
     try {
-      await _loadFeed();
+      if (shouldReloadStreak) {
+        await Future.wait([_loadFeed(), _loadStreak()]);
+      } else {
+        await _loadFeed();
+      }
 
       if (mounted) {
         setState(() => _isLoading = false);
@@ -413,7 +413,7 @@ class HomePageState extends State<HomePage> {
                 children: [
                   Icon(Icons.check_circle, color: Colors.white),
                   SizedBox(width: 8),
-                  Text('Post created successfully!'),
+                  Text('Post created successfully! 🔥'), // ✅ Add fire emoji
                 ],
               ),
               duration: const Duration(seconds: 2),
@@ -433,7 +433,9 @@ class HomePageState extends State<HomePage> {
               action: SnackBarAction(
                 label: 'Refresh',
                 textColor: Colors.white,
-                onPressed: () => _loadFeed(),
+                onPressed: () async {
+                  await Future.wait([_loadFeed(), _loadStreak()]);
+                },
               ),
             ),
           );
@@ -442,7 +444,6 @@ class HomePageState extends State<HomePage> {
     } catch (e) {
       if (mounted) {
         setState(() => _isLoading = false);
-
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Failed to refresh feed: $e'),
@@ -450,7 +451,9 @@ class HomePageState extends State<HomePage> {
             action: SnackBarAction(
               label: 'Retry',
               textColor: Colors.white,
-              onPressed: () => _loadFeed(),
+              onPressed: () async {
+                await Future.wait([_loadFeed(), _loadStreak()]);
+              },
             ),
           ),
         );
@@ -460,9 +463,8 @@ class HomePageState extends State<HomePage> {
 
   Future<void> _refreshPosts() async {
     _error = null;
-
     try {
-      await _loadFeed();
+      await Future.wait([_loadFeed(), _loadStreak()]);
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

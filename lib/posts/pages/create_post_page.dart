@@ -105,6 +105,7 @@ class _CreatePostPageState extends State<CreatePostPage> {
           'text': text,
           'photoPath': _todayPhotoPath,
           'timestamp': DateTime.now(),
+          'should_reload_streak': true,
         };
 
         if (mounted) {
