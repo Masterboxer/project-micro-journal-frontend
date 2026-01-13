@@ -567,7 +567,10 @@ class HomePageState extends State<HomePage> {
             ? _templateService.getTemplateById(templateId)
             : null;
     final displayName = template?.name ?? 'Reflection';
-    final timestamp = post['timestamp'] as DateTime;
+    final journalDate =
+        post['journal_date'] != null
+            ? DateTime.parse(post['journal_date'])
+            : post['timestamp'] as DateTime;
     final likeCount = post['like_count'] as int;
     final commentCount = post['comment_count'] as int;
     final isLiked = post['is_liked_by_user'] as bool;
@@ -582,7 +585,7 @@ class HomePageState extends State<HomePage> {
               children: [
                 Expanded(
                   child: Text(
-                    _formatPostDate(timestamp),
+                    _formatExpirationTime(journalDate),
                     style: theme.textTheme.bodyMedium?.copyWith(
                       color: theme.colorScheme.onSurfaceVariant,
                       fontWeight: FontWeight.w500,
@@ -724,6 +727,10 @@ class HomePageState extends State<HomePage> {
             ? _templateService.getTemplateById(templateId)
             : null;
     final userName = post['userName'] ?? 'Friend';
+    final journalDate =
+        post['journal_date'] != null
+            ? DateTime.parse(post['journal_date'])
+            : post['timestamp'] as DateTime;
     final likeCount = post['like_count'] as int;
     final commentCount = post['comment_count'] as int;
     final isLiked = post['is_liked_by_user'] as bool;
@@ -761,7 +768,7 @@ class HomePageState extends State<HomePage> {
                         ),
                       ),
                       Text(
-                        _formatTimestamp(post['timestamp']),
+                        _formatExpirationTime(journalDate),
                         style: theme.textTheme.bodySmall?.copyWith(
                           color: theme.colorScheme.onSurfaceVariant,
                         ),
@@ -888,6 +895,37 @@ class HomePageState extends State<HomePage> {
         ),
       ),
     );
+  }
+
+  // Helper method to format expiration time
+  String _formatExpirationTime(DateTime journalDate) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final postDate = DateTime(
+      journalDate.year,
+      journalDate.month,
+      journalDate.day,
+    );
+
+    // Calculate expiration (2 days after journal date)
+    final expirationDate = postDate.add(const Duration(days: 2));
+    final expiresAt = DateTime(
+      expirationDate.year,
+      expirationDate.month,
+      expirationDate.day,
+    );
+
+    final difference = expiresAt.difference(today).inDays;
+
+    if (difference < 0) {
+      return 'Expired';
+    } else if (difference == 0) {
+      return 'Expires today';
+    } else if (difference == 1) {
+      return 'Expires tomorrow';
+    } else {
+      return 'Expires in $difference days';
+    }
   }
 
   Widget _buildStreakSection() {
