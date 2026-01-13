@@ -9,6 +9,9 @@ import 'package:project_micro_journal/home/models/streak.dart';
 import 'package:project_micro_journal/posts/pages/create_post_page.dart';
 import 'package:project_micro_journal/templates/template_model.dart';
 import 'package:project_micro_journal/templates/template_service.dart';
+import 'package:project_micro_journal/utils/notifications_permissions_page.dart';
+import 'package:timezone/timezone.dart' as tz;
+import 'package:timezone/data/latest.dart' as tz;
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -40,7 +43,7 @@ class HomePageState extends State<HomePage> {
     super.initState();
     _initializeData();
     _initializeLocalNotifications();
-    setupPushNotifications();
+    _checkAndRequestNotifications();
   }
 
   Future<void> _initializeData() async {
@@ -76,23 +79,103 @@ class HomePageState extends State<HomePage> {
 
     await flutterLocalNotificationsPlugin.initialize(settings);
 
-    const AndroidNotificationChannel channel = AndroidNotificationChannel(
-      'default_notification_channel',
-      'Default Notifications',
-      description: 'This channel is used for important notifications.',
-      importance: Importance.high,
+    const AndroidNotificationChannel defaultChannel =
+        AndroidNotificationChannel(
+          'default_notification_channel',
+          'Default Notifications',
+          description: 'This channel is used for important notifications.',
+          importance: Importance.high,
+        );
+
+    const AndroidNotificationChannel reminderChannel =
+        AndroidNotificationChannel(
+          'daily_reminder_channel',
+          'Daily Reminders',
+          description: 'Daily reminder to post',
+          importance: Importance.high,
+        );
+
+    final AndroidFlutterLocalNotificationsPlugin? androidPlugin =
+        flutterLocalNotificationsPlugin
+            .resolvePlatformSpecificImplementation<
+              AndroidFlutterLocalNotificationsPlugin
+            >();
+
+    if (androidPlugin != null) {
+      await androidPlugin.createNotificationChannel(defaultChannel);
+      await androidPlugin.createNotificationChannel(reminderChannel);
+    }
+  }
+
+  Future<void> _checkAndRequestNotifications() async {
+    if (await shouldShowNotificationPermission()) {
+      if (mounted) {
+        final granted = await showNotificationPermissionPage(
+          context,
+          onPermissionGranted: () {},
+        );
+
+        if (granted == true) {
+          await setupPushNotifications();
+          await _scheduleDailyReminder();
+        }
+      }
+    } else {
+      await setupPushNotifications();
+      await _scheduleDailyReminder();
+    }
+  }
+
+  Future<void> _scheduleDailyReminder() async {
+    // Initialize timezone data
+    tz.initializeTimeZones();
+
+    // Get the user's timezone (you might want to fetch this from your backend)
+    final locationName = tz.local.name;
+    final location = tz.getLocation(locationName);
+
+    // Schedule for 9 PM today
+    var scheduledDate = tz.TZDateTime.now(location).add(
+      Duration(
+        hours: 21 - tz.TZDateTime.now(location).hour,
+        minutes: -tz.TZDateTime.now(location).minute,
+        seconds: -tz.TZDateTime.now(location).second,
+      ),
     );
 
-    await flutterLocalNotificationsPlugin
-        .resolvePlatformSpecificImplementation<
-          AndroidFlutterLocalNotificationsPlugin
-        >()
-        ?.createNotificationChannel(channel);
+    // If 9 PM has already passed today, schedule for tomorrow
+    if (scheduledDate.isBefore(tz.TZDateTime.now(location))) {
+      scheduledDate = scheduledDate.add(const Duration(days: 1));
+    }
+
+    const AndroidNotificationDetails androidDetails =
+        AndroidNotificationDetails(
+          'daily_reminder_channel',
+          'Daily Reminders',
+          channelDescription: 'Daily reminder to post',
+          importance: Importance.high,
+          priority: Priority.high,
+        );
+
+    const NotificationDetails notificationDetails = NotificationDetails(
+      android: androidDetails,
+    );
+
+    await flutterLocalNotificationsPlugin.zonedSchedule(
+      0, // Notification ID
+      'Time to reflect! 📝',
+      'Share your thoughts and reflections for today',
+      scheduledDate,
+      notificationDetails,
+      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+      uiLocalNotificationDateInterpretation:
+          UILocalNotificationDateInterpretation.absoluteTime,
+      matchDateTimeComponents:
+          DateTimeComponents.time, // Repeat daily at same time
+    );
   }
 
   Future<void> setupPushNotifications() async {
-    await _firebaseMessaging.requestPermission();
-
     final fcmToken = await _firebaseMessaging.getToken();
     await sendTokenToBackend(fcmToken);
 
