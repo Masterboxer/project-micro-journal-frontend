@@ -6,6 +6,7 @@ import 'package:project_micro_journal/firebase_options.dart';
 import 'package:project_micro_journal/followers/page/followers_page.dart';
 import 'package:project_micro_journal/home/pages/home_page.dart';
 import 'package:project_micro_journal/profile/pages/profile_page.dart';
+import 'package:project_micro_journal/utils/app_navigator.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -15,11 +16,11 @@ Future<void> main() async {
 
 class ProjectMicroJournalApp extends StatelessWidget {
   ProjectMicroJournalApp({super.key});
-  final authenticationTokenStorageService = AuthenticationTokenStorageService();
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      navigatorKey: appNavigatorKey,
       title: 'Project Micro Journal',
       theme: ThemeData(
         useMaterial3: true,
@@ -36,7 +37,7 @@ class ProjectMicroJournalApp extends StatelessWidget {
         ),
       ),
       themeMode: ThemeMode.system,
-      home: AuthWrapper(),
+      home: const AuthWrapper(),
       debugShowCheckedModeBanner: false,
     );
   }
@@ -127,12 +128,17 @@ class _MainAppTabsState extends State<MainAppTabs> {
       ),
       floatingActionButton:
           _currentIndex == 0
-              ? FloatingActionButton.extended(
-                onPressed: () {
-                  _homePageKey.currentState?.createNewPost();
+              ? GestureDetector(
+                onLongPress: () {
+                  _homePageKey.currentState?.microJournalHabitNotification();
                 },
-                icon: const Icon(Icons.add),
-                label: const Text('New Post'),
+                child: FloatingActionButton.extended(
+                  onPressed: () {
+                    _homePageKey.currentState?.createNewPost();
+                  },
+                  icon: const Icon(Icons.add),
+                  label: const Text('New Post'),
+                ),
               )
               : null,
     );

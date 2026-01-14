@@ -9,6 +9,8 @@ import 'package:project_micro_journal/home/models/streak.dart';
 import 'package:project_micro_journal/posts/pages/create_post_page.dart';
 import 'package:project_micro_journal/templates/template_model.dart';
 import 'package:project_micro_journal/templates/template_service.dart';
+import 'package:project_micro_journal/utils/app_navigator.dart';
+import 'package:project_micro_journal/utils/micro_journaling_habit_page.dart';
 import 'package:project_micro_journal/utils/notifications_permissions_page.dart';
 import 'package:timezone/timezone.dart' as tz;
 import 'package:timezone/data/latest.dart' as tz;
@@ -69,6 +71,29 @@ class HomePageState extends State<HomePage> {
     }
   }
 
+  Future<void> microJournalHabitNotification() async {
+    const AndroidNotificationDetails androidDetails =
+        AndroidNotificationDetails(
+          'daily_reminder_channel',
+          'Daily Reminders',
+          channelDescription: 'Daily reminder to post',
+          importance: Importance.high,
+          priority: Priority.high,
+        );
+
+    const NotificationDetails notificationDetails = NotificationDetails(
+      android: androidDetails,
+    );
+
+    await flutterLocalNotificationsPlugin.show(
+      9999,
+      'Time to reflect 🧪',
+      'Tap to open Micro Journaling Habit page',
+      notificationDetails,
+      payload: 'daily_reminder',
+    );
+  }
+
   Future<void> _initializeLocalNotifications() async {
     const AndroidInitializationSettings androidSettings =
         AndroidInitializationSettings('@mipmap/ic_launcher');
@@ -77,7 +102,19 @@ class HomePageState extends State<HomePage> {
       android: androidSettings,
     );
 
-    await flutterLocalNotificationsPlugin.initialize(settings);
+    await flutterLocalNotificationsPlugin.initialize(
+      settings,
+      onDidReceiveNotificationResponse: (NotificationResponse response) {
+        if (response.payload == 'daily_reminder') {
+          appNavigatorKey.currentState?.push(
+            MaterialPageRoute(
+              builder: (context) => const MicroJournalingHabitPage(),
+              fullscreenDialog: true,
+            ),
+          );
+        }
+      },
+    );
 
     const AndroidNotificationChannel defaultChannel =
         AndroidNotificationChannel(
@@ -86,7 +123,6 @@ class HomePageState extends State<HomePage> {
           description: 'This channel is used for important notifications.',
           importance: Importance.high,
         );
-
     const AndroidNotificationChannel reminderChannel =
         AndroidNotificationChannel(
           'daily_reminder_channel',
@@ -100,7 +136,6 @@ class HomePageState extends State<HomePage> {
             .resolvePlatformSpecificImplementation<
               AndroidFlutterLocalNotificationsPlugin
             >();
-
     if (androidPlugin != null) {
       await androidPlugin.createNotificationChannel(defaultChannel);
       await androidPlugin.createNotificationChannel(reminderChannel);
