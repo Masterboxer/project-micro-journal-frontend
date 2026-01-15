@@ -93,10 +93,74 @@ class FollowersService {
     );
 
     if (response.statusCode == 200) {
-      final List<dynamic> data = jsonDecode(response.body);
+      final dynamic decoded = jsonDecode(response.body);
+      if (decoded == null) return [];
+      final List<dynamic> data = decoded is List ? decoded : [];
       return data.map((json) => Follower.fromJson(json)).toList();
     } else {
       throw Exception('Failed to fetch pending requests: ${response.body}');
+    }
+  }
+
+  // Get list of followers (accepted only)
+  Future<List<Follower>> getFollowers() async {
+    final userId = await _getUserId();
+    if (userId == null) throw Exception('User not authenticated');
+
+    final response = await http.get(
+      Uri.parse('${_baseUrl}users/$userId/followers'),
+      headers: {'Content-Type': 'application/json'},
+    );
+
+    if (response.statusCode == 200) {
+      final dynamic decoded = jsonDecode(response.body);
+      if (decoded == null) return [];
+      final List<dynamic> data = decoded is List ? decoded : [];
+      return data.map((json) => Follower.fromJson(json)).toList();
+    } else {
+      throw Exception('Failed to fetch followers: ${response.body}');
+    }
+  }
+
+  // Get list of users being followed (accepted only)
+  Future<List<Follower>> getFollowing() async {
+    final userId = await _getUserId();
+    if (userId == null) throw Exception('User not authenticated');
+
+    final response = await http.get(
+      Uri.parse('${_baseUrl}users/$userId/following'),
+      headers: {'Content-Type': 'application/json'},
+    );
+
+    if (response.statusCode == 200) {
+      final dynamic decoded = jsonDecode(response.body);
+      if (decoded == null) return [];
+      final List<dynamic> data = decoded is List ? decoded : [];
+      return data.map((json) => Follower.fromJson(json)).toList();
+    } else {
+      throw Exception('Failed to fetch following: ${response.body}');
+    }
+  }
+
+  // Search users with follow status
+  Future<List<UserSearchResult>> searchUsers(String query) async {
+    final userId = await _getUserId();
+    if (userId == null) throw Exception('User not authenticated');
+
+    final response = await http.get(
+      Uri.parse(
+        '${_baseUrl}users/search?q=${Uri.encodeComponent(query)}&requesting_user_id=$userId',
+      ),
+      headers: {'Content-Type': 'application/json'},
+    );
+
+    if (response.statusCode == 200) {
+      final dynamic decoded = jsonDecode(response.body);
+      if (decoded == null) return [];
+      final List<dynamic> data = decoded is List ? decoded : [];
+      return data.map((json) => UserSearchResult.fromJson(json)).toList();
+    } else {
+      throw Exception('Failed to search users: ${response.body}');
     }
   }
 
@@ -111,7 +175,9 @@ class FollowersService {
     );
 
     if (response.statusCode == 200) {
-      final List<dynamic> data = jsonDecode(response.body);
+      final dynamic decoded = jsonDecode(response.body);
+      if (decoded == null) return [];
+      final List<dynamic> data = decoded is List ? decoded : [];
       return data.map((json) => Follower.fromJson(json)).toList();
     } else {
       throw Exception('Failed to fetch sent requests: ${response.body}');
@@ -163,42 +229,6 @@ class FollowersService {
     }
   }
 
-  // Get list of followers (accepted only)
-  Future<List<Follower>> getFollowers() async {
-    final userId = await _getUserId();
-    if (userId == null) throw Exception('User not authenticated');
-
-    final response = await http.get(
-      Uri.parse('${_baseUrl}users/$userId/followers'),
-      headers: {'Content-Type': 'application/json'},
-    );
-
-    if (response.statusCode == 200) {
-      final List<dynamic> data = jsonDecode(response.body);
-      return data.map((json) => Follower.fromJson(json)).toList();
-    } else {
-      throw Exception('Failed to fetch followers: ${response.body}');
-    }
-  }
-
-  // Get list of users being followed (accepted only)
-  Future<List<Follower>> getFollowing() async {
-    final userId = await _getUserId();
-    if (userId == null) throw Exception('User not authenticated');
-
-    final response = await http.get(
-      Uri.parse('${_baseUrl}users/$userId/following'),
-      headers: {'Content-Type': 'application/json'},
-    );
-
-    if (response.statusCode == 200) {
-      final List<dynamic> data = jsonDecode(response.body);
-      return data.map((json) => Follower.fromJson(json)).toList();
-    } else {
-      throw Exception('Failed to fetch following: ${response.body}');
-    }
-  }
-
   // Get follower and following stats
   Future<FollowStats> getFollowStats() async {
     final userId = await _getUserId();
@@ -213,26 +243,6 @@ class FollowersService {
       return FollowStats.fromJson(jsonDecode(response.body));
     } else {
       throw Exception('Failed to fetch stats: ${response.body}');
-    }
-  }
-
-  // Search users with follow status
-  Future<List<UserSearchResult>> searchUsers(String query) async {
-    final userId = await _getUserId();
-    if (userId == null) throw Exception('User not authenticated');
-
-    final response = await http.get(
-      Uri.parse(
-        '${_baseUrl}users/search?q=${Uri.encodeComponent(query)}&requesting_user_id=$userId',
-      ),
-      headers: {'Content-Type': 'application/json'},
-    );
-
-    if (response.statusCode == 200) {
-      final List<dynamic> data = jsonDecode(response.body);
-      return data.map((json) => UserSearchResult.fromJson(json)).toList();
-    } else {
-      throw Exception('Failed to search users: ${response.body}');
     }
   }
 }
