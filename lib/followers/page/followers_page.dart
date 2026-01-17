@@ -12,7 +12,7 @@ class FollowersPage extends StatefulWidget {
 }
 
 class _FollowersPageState extends State<FollowersPage>
-    with SingleTickerProviderStateMixin {
+    with SingleTickerProviderStateMixin, WidgetsBindingObserver {
   final FollowersService _followersService = FollowersService();
   final TextEditingController _searchController = TextEditingController();
 
@@ -33,6 +33,7 @@ class _FollowersPageState extends State<FollowersPage>
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _tabController = TabController(length: 3, vsync: this);
     _tabController.addListener(_onTabChanged);
     _loadAllData();
@@ -40,10 +41,20 @@ class _FollowersPageState extends State<FollowersPage>
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _tabController.removeListener(_onTabChanged);
     _tabController.dispose();
     _searchController.dispose();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+    // Refresh data when app comes back to foreground
+    if (state == AppLifecycleState.resumed) {
+      _loadAllData();
+    }
   }
 
   void _onTabChanged() {
@@ -457,6 +468,13 @@ class _FollowersPageState extends State<FollowersPage>
     return Scaffold(
       appBar: AppBar(
         title: const Text('Followers'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: _loadAllData,
+            tooltip: 'Refresh',
+          ),
+        ],
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(110),
           child: Column(
