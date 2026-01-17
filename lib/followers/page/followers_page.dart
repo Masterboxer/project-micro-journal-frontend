@@ -200,6 +200,26 @@ class _FollowersPageState extends State<FollowersPage>
     }
   }
 
+  Future<void> _followBackUser(int userId, String displayName) async {
+    try {
+      final result = await _followersService.followUser(userId);
+      final status = result['status'] as String?;
+
+      if (mounted) {
+        if (status == 'pending') {
+          _showSnackBar('Follow request sent to $displayName');
+        } else {
+          _showSnackBar('Now following $displayName');
+        }
+        await _loadAllData();
+      }
+    } catch (e) {
+      if (mounted) {
+        _showSnackBar('Failed to follow back: $e', isError: true);
+      }
+    }
+  }
+
   Future<void> _cancelFollowRequest(int userId, String displayName) async {
     try {
       await _followersService.cancelFollowRequest(userId);
@@ -413,6 +433,11 @@ class _FollowersPageState extends State<FollowersPage>
         }
       }
     }
+  }
+
+  // Helper to check if user is already being followed
+  bool _isFollowingUser(int userId) {
+    return _following.any((user) => user.id == userId);
   }
 
   void _showSnackBar(String message, {bool isError = false}) {
@@ -822,6 +847,8 @@ class _FollowersPageState extends State<FollowersPage>
                 itemCount: _followers.length,
                 itemBuilder: (context, index) {
                   final follower = _followers[index];
+                  final isFollowingBack = _isFollowingUser(follower.id);
+
                   return Card(
                     margin: const EdgeInsets.only(bottom: 12),
                     child: ListTile(
@@ -846,17 +873,42 @@ class _FollowersPageState extends State<FollowersPage>
                         '@${follower.username}',
                         overflow: TextOverflow.ellipsis,
                       ),
-                      trailing: IconButton(
-                        icon: Icon(
-                          Icons.person_remove,
-                          color: theme.colorScheme.error.withOpacity(0.7),
-                        ),
-                        onPressed:
-                            () => _removeFollower(
-                              follower.id,
-                              follower.displayName,
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (!isFollowingBack)
+                            FilledButton.icon(
+                              onPressed:
+                                  () => _followBackUser(
+                                    follower.id,
+                                    follower.displayName,
+                                  ),
+                              style: FilledButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                ),
+                              ),
+                              icon: const Icon(Icons.person_add, size: 16),
+                              label: const Text(
+                                'Follow Back',
+                                style: TextStyle(fontSize: 12),
+                              ),
+                            )
+                          else
+                            const SizedBox(width: 8),
+                          IconButton(
+                            icon: Icon(
+                              Icons.person_remove,
+                              color: theme.colorScheme.error.withOpacity(0.7),
                             ),
-                        tooltip: 'Remove follower',
+                            onPressed:
+                                () => _removeFollower(
+                                  follower.id,
+                                  follower.displayName,
+                                ),
+                            tooltip: 'Remove follower',
+                          ),
+                        ],
                       ),
                     ),
                   );
