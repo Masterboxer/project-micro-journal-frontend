@@ -45,9 +45,9 @@ class _OnboardingPageState extends State<OnboardingPage> {
     OnboardingScreen(
       icon: Icons.people_rounded,
       iconColor: Colors.blue,
-      title: "3 friends,\nno more",
+      title: "5 friends,\nand that's enough",
       body:
-          "This isn't a place to grow an audience. You can connect with up to 3 people. That's it.",
+          "This isn't a place to grow an audience. You can connect with up to 5 people. That's it.",
       caption: "Quality over quantity, always",
       primaryCTA: "Makes sense",
     ),
@@ -56,7 +56,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
       iconColor: Colors.blue,
       title: "Notifications that\nactually help",
       body:
-          "We'll remind you when the day is ending and when your friends share. Nothing spammy, just helpful.",
+          "We'll remind you if you didn't post for the day and when your friends share and interact. Nothing spammy, just helpful.",
       caption: "You can always adjust these later",
       primaryCTA: "Sounds good",
       secondaryCTA: "Maybe later",
