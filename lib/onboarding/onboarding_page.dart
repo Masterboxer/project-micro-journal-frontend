@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:project_micro_journal/authentication/pages/signup_page.dart';
+import 'package:project_micro_journal/utils/notifications_permissions_page.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class OnboardingPage extends StatefulWidget {
@@ -17,10 +18,10 @@ class _OnboardingPageState extends State<OnboardingPage> {
     OnboardingScreen(
       icon: Icons.edit_note_rounded,
       iconColor: Colors.blue,
-      title: "A space to reflect,\nnot perform",
+      title: "Welcome to\nProject Micro Journal",
       body:
-          "Project Micro Journal is a place to pause and share honestly with the people who matter most.",
-      caption: "Just you, your thoughts, and a few close friends",
+          "A calm space to reflect with the people who matter most. One post a day, no noise, no pressure.",
+      caption: "This isn't a place to perform. It's a place to show up.",
       primaryCTA: "Continue",
     ),
     OnboardingScreen(
@@ -37,7 +38,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
       iconColor: Colors.orange,
       title: "Gentle streaks,\nnot strict rules",
       body:
-          "We count the days you show up. Miss the evening? Post the next morning—your streak is safe.",
+          "We count the days you show up. Miss the evening? Post the next morning, your streak is safe.",
       caption: "Consistency matters, but life happens",
       primaryCTA: "That's nice",
     ),
@@ -59,6 +60,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
       caption: "You can always adjust these later",
       primaryCTA: "Sounds good",
       secondaryCTA: "Maybe later",
+      isNotificationScreen: true,
     ),
     OnboardingScreen(
       icon: Icons.edit_rounded,
@@ -71,7 +73,12 @@ class _OnboardingPageState extends State<OnboardingPage> {
     ),
   ];
 
-  void _nextPage() {
+  void _nextPage() async {
+    if (_currentPage == 4 && _screens[_currentPage].isNotificationScreen) {
+      await _handleNotificationPermission();
+      return;
+    }
+
     if (_currentPage < _screens.length - 1) {
       _pageController.nextPage(
         duration: const Duration(milliseconds: 300),
@@ -79,6 +86,22 @@ class _OnboardingPageState extends State<OnboardingPage> {
       );
     } else {
       _completeOnboarding();
+    }
+  }
+
+  Future<void> _handleNotificationPermission() async {
+    if (!mounted) return;
+
+    final granted = await showNotificationPermissionPage(
+      context,
+      onPermissionGranted: () {},
+    );
+
+    if (mounted && _currentPage < _screens.length - 1) {
+      _pageController.nextPage(
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeInOut,
+      );
     }
   }
 
@@ -109,7 +132,6 @@ class _OnboardingPageState extends State<OnboardingPage> {
       body: SafeArea(
         child: Column(
           children: [
-            // Progress indicator
             Padding(
               padding: const EdgeInsets.all(16),
               child: Row(
@@ -134,7 +156,6 @@ class _OnboardingPageState extends State<OnboardingPage> {
               ),
             ),
 
-            // Skip button
             if (_currentPage < _screens.length - 1)
               Align(
                 alignment: Alignment.centerRight,
@@ -154,7 +175,6 @@ class _OnboardingPageState extends State<OnboardingPage> {
             else
               const SizedBox(height: 48),
 
-            // Content
             Expanded(
               child: PageView.builder(
                 controller: _pageController,
@@ -170,7 +190,6 @@ class _OnboardingPageState extends State<OnboardingPage> {
               ),
             ),
 
-            // Bottom buttons
             Padding(
               padding: const EdgeInsets.all(24),
               child: Column(
@@ -196,7 +215,14 @@ class _OnboardingPageState extends State<OnboardingPage> {
                     SizedBox(
                       width: double.infinity,
                       child: TextButton(
-                        onPressed: _nextPage,
+                        onPressed: () {
+                          if (_currentPage < _screens.length - 1) {
+                            _pageController.nextPage(
+                              duration: const Duration(milliseconds: 300),
+                              curve: Curves.easeInOut,
+                            );
+                          }
+                        },
                         style: TextButton.styleFrom(
                           padding: const EdgeInsets.symmetric(vertical: 16),
                         ),
@@ -222,7 +248,6 @@ class _OnboardingPageState extends State<OnboardingPage> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          // Icon
           Container(
             padding: const EdgeInsets.all(24),
             decoration: BoxDecoration(
@@ -234,7 +259,6 @@ class _OnboardingPageState extends State<OnboardingPage> {
 
           const SizedBox(height: 48),
 
-          // Title
           Text(
             screen.title,
             style: theme.textTheme.headlineMedium?.copyWith(
@@ -246,7 +270,6 @@ class _OnboardingPageState extends State<OnboardingPage> {
 
           const SizedBox(height: 24),
 
-          // Body
           Text(
             screen.body,
             style: theme.textTheme.bodyLarge?.copyWith(
@@ -289,6 +312,7 @@ class OnboardingScreen {
   final String? caption;
   final String primaryCTA;
   final String? secondaryCTA;
+  final bool isNotificationScreen;
 
   OnboardingScreen({
     required this.icon,
@@ -298,5 +322,6 @@ class OnboardingScreen {
     this.caption,
     required this.primaryCTA,
     this.secondaryCTA,
+    this.isNotificationScreen = false,
   });
 }
