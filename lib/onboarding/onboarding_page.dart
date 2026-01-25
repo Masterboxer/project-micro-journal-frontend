@@ -92,10 +92,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
   Future<void> _handleNotificationPermission() async {
     if (!mounted) return;
 
-    final granted = await showNotificationPermissionPage(
-      context,
-      onPermissionGranted: () {},
-    );
+    await showNotificationPermissionPage(context, onPermissionGranted: () {});
 
     if (mounted && _currentPage < _screens.length - 1) {
       _pageController.nextPage(
