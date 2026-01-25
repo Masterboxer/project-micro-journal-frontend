@@ -5,8 +5,10 @@ import 'package:project_micro_journal/authentication/services/authentication_tok
 import 'package:project_micro_journal/firebase_options.dart';
 import 'package:project_micro_journal/followers/page/followers_page.dart';
 import 'package:project_micro_journal/home/pages/home_page.dart';
+import 'package:project_micro_journal/onboarding/onboarding_page.dart';
 import 'package:project_micro_journal/profile/pages/profile_page.dart';
 import 'package:project_micro_journal/utils/app_navigator.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -37,31 +39,51 @@ class ProjectMicroJournalApp extends StatelessWidget {
         ),
       ),
       themeMode: ThemeMode.system,
-      home: const AuthWrapper(),
+      home: const AppInitializer(),
       debugShowCheckedModeBanner: false,
     );
   }
 }
 
-class AuthWrapper extends StatelessWidget {
-  const AuthWrapper({super.key});
+class AppInitializer extends StatelessWidget {
+  const AppInitializer({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder<String?>(
-      future: AuthenticationTokenStorageService().getAccessToken(),
+    return FutureBuilder<Map<String, dynamic>>(
+      future: _initializeApp(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Scaffold(
             body: Center(child: CircularProgressIndicator()),
           );
-        } else if (snapshot.hasData && snapshot.data != null) {
+        }
+
+        final data = snapshot.data!;
+        final hasSeenOnboarding = data['onboarding_completed'] as bool;
+        final hasToken = data['access_token'] as String?;
+
+        if (!hasSeenOnboarding) {
+          return const OnboardingPage();
+        } else if (hasToken != null) {
           return const MainAppTabs();
         } else {
           return const SignupPage();
         }
       },
     );
+  }
+
+  Future<Map<String, dynamic>> _initializeApp() async {
+    final prefs = await SharedPreferences.getInstance();
+    final hasSeenOnboarding = prefs.getBool('onboarding_completed') ?? false;
+    final accessToken =
+        await AuthenticationTokenStorageService().getAccessToken();
+
+    return {
+      'onboarding_completed': hasSeenOnboarding,
+      'access_token': accessToken,
+    };
   }
 }
 
