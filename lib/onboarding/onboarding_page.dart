@@ -67,7 +67,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
       body:
           "Your first post is waiting. No one's watching yet. Just write what's on your mind.",
       caption: null,
-      primaryCTA: "Start Journaling",
+      primaryCTA: "Start Micro Journaling",
     ),
   ];
 
