@@ -51,7 +51,6 @@ class _FollowersPageState extends State<FollowersPage>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     super.didChangeAppLifecycleState(state);
-    // Refresh data when app comes back to foreground
     if (state == AppLifecycleState.resumed) {
       _loadAllData();
     }
@@ -446,7 +445,6 @@ class _FollowersPageState extends State<FollowersPage>
     }
   }
 
-  // Helper to check if user is already being followed
   bool _isFollowingUser(int userId) {
     return _following.any((user) => user.id == userId);
   }

@@ -12,8 +12,6 @@ import 'package:project_micro_journal/templates/template_service.dart';
 import 'package:project_micro_journal/utils/app_navigator.dart';
 import 'package:project_micro_journal/utils/micro_journaling_habit_page.dart';
 import 'package:project_micro_journal/utils/notifications_permissions_page.dart';
-import 'package:timezone/timezone.dart' as tz;
-import 'package:timezone/data/latest.dart' as tz;
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -95,6 +93,108 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
     );
   }
 
+  Widget _buildBadge({
+    required IconData icon,
+    required String label,
+    required Color background,
+    required Color foreground,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: background,
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: foreground),
+          const SizedBox(width: 6),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: foreground,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _getPostedLabel(DateTime journalDate) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final postDate = DateTime(
+      journalDate.year,
+      journalDate.month,
+      journalDate.day,
+    );
+
+    final diff = today.difference(postDate).inDays;
+
+    if (diff == 0) return 'Posted today';
+    if (diff == 1) return 'Posted yesterday';
+    return 'Posted $diff days ago';
+  }
+
+  String _getExpiryLabel(DateTime journalDate) {
+    final postDate = DateTime(
+      journalDate.year,
+      journalDate.month,
+      journalDate.day,
+    );
+    final expiresAt = postDate.add(const Duration(days: 2));
+
+    final today = DateTime.now();
+    final todayDate = DateTime(today.year, today.month, today.day);
+
+    final diff = expiresAt.difference(todayDate).inDays;
+
+    if (diff < 0) return 'Expired';
+    if (diff == 0) return 'Expires today';
+    if (diff == 1) return 'Expires tomorrow';
+    return 'Expires in $diff days';
+  }
+
+  Future<bool> _hasPostedToday() async {
+    try {
+      final String? userIdStr = await _authStorage.getUserId();
+      if (userIdStr == null) return false;
+
+      final response = await http.get(
+        Uri.parse('${Environment.baseUrl}posts/$userIdStr/feed'),
+        headers: {'Content-Type': 'application/json'},
+      );
+
+      if (response.statusCode != 200) return false;
+
+      final dynamic responseBody = json.decode(response.body);
+      final List<dynamic> feedData = responseBody is List ? responseBody : [];
+
+      final now = DateTime.now();
+      final today = DateTime(now.year, now.month, now.day);
+      final int userId = int.parse(userIdStr);
+
+      for (final post in feedData) {
+        if ((post['user_id'] as int) == userId) {
+          final postDate = DateTime.parse(post['created_at']);
+          final postDay = DateTime(postDate.year, postDate.month, postDate.day);
+
+          if (postDay == today) {
+            return true;
+          }
+        }
+      }
+
+      return false;
+    } catch (e) {
+      print('Error checking if posted today: $e');
+      return false;
+    }
+  }
+
   Future<void> _initializeLocalNotifications() async {
     const AndroidInitializationSettings androidSettings =
         AndroidInitializationSettings('@mipmap/ic_launcher');
@@ -105,8 +205,19 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
     await flutterLocalNotificationsPlugin.initialize(
       settings,
-      onDidReceiveNotificationResponse: (NotificationResponse response) {
-        if (response.payload == 'daily_reminder') {
+      onDidReceiveNotificationResponse: (NotificationResponse response) async {
+        if (response.payload == 'daily_reminder_check') {
+          final hasPosted = await _hasPostedToday();
+
+          if (!hasPosted) {
+            appNavigatorKey.currentState?.push(
+              MaterialPageRoute(
+                builder: (context) => const MicroJournalingHabitPage(),
+                fullscreenDialog: true,
+              ),
+            );
+          }
+        } else if (response.payload == 'daily_reminder') {
           appNavigatorKey.currentState?.push(
             MaterialPageRoute(
               builder: (context) => const MicroJournalingHabitPage(),
@@ -153,62 +264,11 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
         if (granted == true) {
           await setupPushNotifications();
-          await _scheduleDailyReminder();
         }
       }
     } else {
       await setupPushNotifications();
-      await _scheduleDailyReminder();
     }
-  }
-
-  Future<void> _scheduleDailyReminder() async {
-    // Initialize timezone data
-    tz.initializeTimeZones();
-
-    // Get the user's timezone (you might want to fetch this from your backend)
-    final locationName = tz.local.name;
-    final location = tz.getLocation(locationName);
-
-    // Schedule for 9 PM today
-    var scheduledDate = tz.TZDateTime.now(location).add(
-      Duration(
-        hours: 21 - tz.TZDateTime.now(location).hour,
-        minutes: -tz.TZDateTime.now(location).minute,
-        seconds: -tz.TZDateTime.now(location).second,
-      ),
-    );
-
-    // If 9 PM has already passed today, schedule for tomorrow
-    if (scheduledDate.isBefore(tz.TZDateTime.now(location))) {
-      scheduledDate = scheduledDate.add(const Duration(days: 1));
-    }
-
-    const AndroidNotificationDetails androidDetails =
-        AndroidNotificationDetails(
-          'daily_reminder_channel',
-          'Daily Reminders',
-          channelDescription: 'Daily reminder to post',
-          importance: Importance.high,
-          priority: Priority.high,
-        );
-
-    const NotificationDetails notificationDetails = NotificationDetails(
-      android: androidDetails,
-    );
-
-    await flutterLocalNotificationsPlugin.zonedSchedule(
-      0, // Notification ID
-      'Time to reflect! 📝',
-      'Share your thoughts and reflections for today',
-      scheduledDate,
-      notificationDetails,
-      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-      uiLocalNotificationDateInterpretation:
-          UILocalNotificationDateInterpretation.absoluteTime,
-      matchDateTimeComponents:
-          DateTimeComponents.time, // Repeat daily at same time
-    );
   }
 
   Future<void> setupPushNotifications() async {
@@ -459,45 +519,6 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
     );
   }
 
-  String _formatPostDate(DateTime timestamp) {
-    final now = DateTime.now();
-    final localTimestamp = timestamp.toLocal();
-    final today = DateTime(now.year, now.month, now.day);
-    final yesterday = today.subtract(const Duration(days: 1));
-    final postDate = DateTime(
-      localTimestamp.year,
-      localTimestamp.month,
-      localTimestamp.day,
-    );
-
-    if (postDate == today) {
-      return 'Today';
-    } else if (postDate == yesterday) {
-      return 'Yesterday';
-    } else {
-      final daysAgo = today.difference(postDate).inDays;
-      if (daysAgo <= 7) {
-        return '$daysAgo day${daysAgo == 1 ? '' : 's'} ago';
-      } else {
-        final months = [
-          'Jan',
-          'Feb',
-          'Mar',
-          'Apr',
-          'May',
-          'Jun',
-          'Jul',
-          'Aug',
-          'Sep',
-          'Oct',
-          'Nov',
-          'Dec',
-        ];
-        return '${months[localTimestamp.month - 1]} ${localTimestamp.day}';
-      }
-    }
-  }
-
   Future<void> createNewPost() async {
     final result = await Navigator.of(context).push<Map<String, dynamic>>(
       MaterialPageRoute(builder: (context) => const CreatePostPage()),
@@ -532,7 +553,7 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
                 children: [
                   Icon(Icons.check_circle, color: Colors.white),
                   SizedBox(width: 8),
-                  Text('Post created successfully! 🔥'), // ✅ Add fire emoji
+                  Text('Post created successfully! 🔥'),
                 ],
               ),
               duration: const Duration(seconds: 2),
@@ -633,11 +654,9 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
       child: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          // Add streaks section at the top
           _buildStreakSection(),
           const SizedBox(height: 24),
 
-          // Your existing posts sections
           if (_userPosts.isNotEmpty) ...[
             Text(
               'Your Posts (${_userPosts.length})',
@@ -653,7 +672,7 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
                     child: _buildUserPostCard(theme, post),
                   ),
                 )
-                .toList(), // ← Add .toList() here
+                .toList(),
             const SizedBox(height: 24),
           ],
 
@@ -700,14 +719,21 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // Header with template and delete button
             Row(
               children: [
+                Icon(
+                  template?.iconData ?? Icons.help_outline,
+                  size: 20,
+                  color: theme.colorScheme.primary,
+                ),
+                const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    _formatExpirationTime(journalDate),
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
-                      fontWeight: FontWeight.w500,
+                    displayName,
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w600,
+                      color: theme.colorScheme.primary,
                     ),
                   ),
                 ),
@@ -722,39 +748,38 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
                 ),
               ],
             ),
+
             const SizedBox(height: 12),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              decoration: BoxDecoration(
-                color: theme.colorScheme.primaryContainer,
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    template?.iconData ?? Icons.help_outline,
-                    size: 16,
-                    color: theme.colorScheme.onPrimaryContainer,
+
+            // Status badges
+            Row(
+              children: [
+                _buildBadge(
+                  icon: Icons.schedule,
+                  label: _getPostedLabel(journalDate),
+                  background: theme.colorScheme.surfaceVariant,
+                  foreground: theme.colorScheme.onSurfaceVariant,
+                ),
+                const SizedBox(width: 8),
+                _buildBadge(
+                  icon: Icons.timer_outlined,
+                  label: _getExpiryLabel(journalDate),
+                  background: theme.colorScheme.primaryContainer.withOpacity(
+                    0.9,
                   ),
-                  const SizedBox(width: 6),
-                  Flexible(
-                    child: Text(
-                      displayName,
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.onPrimaryContainer,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
+                  foreground: theme.colorScheme.onPrimaryContainer,
+                ),
+              ],
             ),
-            const SizedBox(height: 12),
+
+            const SizedBox(height: 16),
+
+            // Post content
             Text(post['text'], style: theme.textTheme.bodyLarge),
+
             if (post['photoPath'] != null &&
                 post['photoPath'].toString().isNotEmpty) ...[
-              const SizedBox(height: 8),
+              const SizedBox(height: 12),
               Row(
                 children: [
                   Icon(
@@ -772,8 +797,11 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
                 ],
               ),
             ],
+
             const SizedBox(height: 12),
             const Divider(),
+
+            // Actions row
             Row(
               children: [
                 InkWell(
@@ -1016,7 +1044,6 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
     );
   }
 
-  // Helper method to format expiration time
   String _formatExpirationTime(DateTime journalDate) {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
@@ -1026,7 +1053,6 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
       journalDate.day,
     );
 
-    // Calculate expiration (2 days after journal date)
     final expirationDate = postDate.add(const Duration(days: 2));
     final expiresAt = DateTime(
       expirationDate.year,
@@ -1189,20 +1215,6 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
           );
         }
       }
-    }
-  }
-
-  String _formatTimestamp(DateTime timestamp) {
-    final now = DateTime.now();
-    final localTimestamp = timestamp.toLocal();
-    final difference = now.difference(localTimestamp);
-
-    if (difference.inHours < 1) {
-      return '${difference.inMinutes}m ago';
-    } else if (difference.inHours < 24) {
-      return '${difference.inHours}h ago';
-    } else {
-      return '${difference.inDays}d ago';
     }
   }
 
