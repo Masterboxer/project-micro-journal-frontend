@@ -45,9 +45,9 @@ class _OnboardingPageState extends State<OnboardingPage> {
     OnboardingScreen(
       icon: Icons.people_rounded,
       iconColor: Colors.blue,
-      title: "5 friends,\nand that's enough",
+      title: "10 friends,\nand that's enough",
       body:
-          "This isn't a place to grow an audience. You can connect with up to 5 people. That's it.",
+          "This isn't a place to grow an audience. You can connect with up to 10 people. That's it.",
       caption: "Quality over quantity, always",
       primaryCTA: "Makes sense",
     ),
