@@ -20,7 +20,6 @@ class _CreatePostPageState extends State<CreatePostPage> {
   final AuthenticationTokenStorageService _authStorage =
       AuthenticationTokenStorageService();
 
-  String? _todayPhotoPath;
   PostTemplate? _selectedTemplate;
   bool _isLoadingTemplates = true;
   bool _isSubmitting = false;
@@ -55,13 +54,6 @@ class _CreatePostPageState extends State<CreatePostPage> {
     }
   }
 
-  Future<void> _pickPhoto() async {
-    // TODO: Add image_picker package and implement
-    setState(() {
-      _todayPhotoPath = 'mock_photo_path.jpg';
-    });
-  }
-
   Future<void> _submitPost() async {
     final text = _postController.text.trim();
 
@@ -88,7 +80,6 @@ class _CreatePostPageState extends State<CreatePostPage> {
         'user_id': int.parse(userId),
         'template_id': _selectedTemplate!.id,
         'text': text,
-        'photoPath': _todayPhotoPath ?? '',
       };
 
       final response = await http.post(
@@ -103,7 +94,6 @@ class _CreatePostPageState extends State<CreatePostPage> {
           'id': responseData['id'],
           'template_id': _selectedTemplate!.id,
           'text': text,
-          'photoPath': _todayPhotoPath,
           'timestamp': DateTime.now(),
           'should_reload_streak': true,
         };
@@ -303,7 +293,7 @@ class _CreatePostPageState extends State<CreatePostPage> {
           ],
 
           _buildTextInputSection(theme),
-          _buildPhotoSection(theme),
+          _buildSubmitButton(theme),
         ],
       ),
     );
@@ -530,26 +520,9 @@ class _CreatePostPageState extends State<CreatePostPage> {
     );
   }
 
-  Widget _buildPhotoSection(ThemeData theme) {
+  Widget _buildSubmitButton(ThemeData theme) {
     return Column(
       children: [
-        const SizedBox(height: 16),
-        TextButton.icon(
-          onPressed:
-              (!_isSubmitting && _selectedTemplate != null) ? _pickPhoto : null,
-          icon: Icon(
-            _todayPhotoPath != null ? Icons.check_circle : Icons.photo_outlined,
-          ),
-          label: Text(
-            _todayPhotoPath != null ? 'Photo added ✓' : 'Add photo (optional)',
-            style: TextStyle(
-              color:
-                  _selectedTemplate != null && !_isSubmitting
-                      ? null
-                      : theme.colorScheme.onSurface.withOpacity(0.5),
-            ),
-          ),
-        ),
         const SizedBox(height: 40),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 8.0),

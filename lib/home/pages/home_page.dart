@@ -334,12 +334,12 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
             'user_id': post['user_id'],
             'templateId': post['template_id'],
             'text': post['text'],
-            'photoPath': post['photo_path'],
             'timestamp': DateTime.parse(post['created_at']),
             'userName': post['display_name'] ?? post['username'] ?? 'User',
-            'like_count': post['like_count'] ?? 0,
             'comment_count': post['comment_count'] ?? 0,
-            'is_liked_by_user': post['is_liked_by_user'] ?? false,
+            'reactions': post['reactions'] ?? {}, // {'like': 5, 'love': 3, ...}
+            'user_reaction': post['user_reaction'], // 'like', 'love', etc.
+            'total_reactions': post['total_reactions'] ?? 0,
           };
 
           if ((post['user_id'] as int) == userId) {
@@ -709,9 +709,10 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
         post['journal_date'] != null
             ? DateTime.parse(post['journal_date'])
             : post['timestamp'] as DateTime;
-    final likeCount = post['like_count'] as int;
     final commentCount = post['comment_count'] as int;
-    final isLiked = post['is_liked_by_user'] as bool;
+    final totalReactions = post['total_reactions'] as int? ?? 0;
+    final userReaction =
+        post['user_reaction'] as String?; // 'heart', 'laugh', etc.
 
     return Card(
       child: Padding(
@@ -777,27 +778,6 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
             // Post content
             Text(post['text'], style: theme.textTheme.bodyLarge),
 
-            if (post['photoPath'] != null &&
-                post['photoPath'].toString().isNotEmpty) ...[
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  Icon(
-                    Icons.photo,
-                    size: 18,
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
-                  const SizedBox(width: 4),
-                  Text(
-                    'Photo attached',
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                ],
-              ),
-            ],
-
             const SizedBox(height: 12),
             const Divider(),
 
@@ -805,7 +785,8 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
             Row(
               children: [
                 InkWell(
-                  onTap: () => _toggleLike(post['id']),
+                  onTap: () => _showReactionPicker(post['id'], post),
+                  onLongPress: () => _showReactionPicker(post['id'], post),
                   borderRadius: BorderRadius.circular(20),
                   child: Padding(
                     padding: const EdgeInsets.symmetric(
@@ -814,16 +795,22 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
                     ),
                     child: Row(
                       children: [
-                        Icon(
-                          isLiked ? Icons.favorite : Icons.favorite_border,
-                          size: 20,
-                          color:
-                              isLiked
-                                  ? Colors.red
-                                  : theme.colorScheme.onSurfaceVariant,
-                        ),
+                        if (userReaction != null)
+                          Text(
+                            _reactionEmojis[userReaction]!,
+                            style: TextStyle(fontSize: 20),
+                          )
+                        else
+                          Icon(
+                            Icons.favorite_border,
+                            size: 20,
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
                         const SizedBox(width: 4),
-                        Text('$likeCount', style: theme.textTheme.bodyMedium),
+                        Text(
+                          '$totalReactions',
+                          style: theme.textTheme.bodyMedium,
+                        ),
                       ],
                     ),
                   ),
@@ -854,11 +841,6 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
                   ),
                 ),
                 const Spacer(),
-                if (likeCount > 0)
-                  TextButton(
-                    onPressed: () => _showLikesList(post['id']),
-                    child: const Text('View Likes'),
-                  ),
               ],
             ),
           ],
@@ -878,9 +860,9 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
         post['journal_date'] != null
             ? DateTime.parse(post['journal_date'])
             : post['timestamp'] as DateTime;
-    final likeCount = post['like_count'] as int;
     final commentCount = post['comment_count'] as int;
-    final isLiked = post['is_liked_by_user'] as bool;
+    final totalReactions = post['total_reactions'] as int? ?? 0;
+    final userReaction = post['user_reaction'] as String?;
 
     return Card(
       elevation: 1,
@@ -957,32 +939,13 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
             ),
             const SizedBox(height: 12),
             Text(post['text'], style: theme.textTheme.bodyMedium),
-            if (post['photoPath'] != null &&
-                post['photoPath'].toString().isNotEmpty) ...[
-              const SizedBox(height: 8),
-              Row(
-                children: [
-                  Icon(
-                    Icons.photo,
-                    size: 18,
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
-                  const SizedBox(width: 4),
-                  Text(
-                    'Photo attached',
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                ],
-              ),
-            ],
             const SizedBox(height: 12),
             const Divider(),
             Row(
               children: [
                 InkWell(
-                  onTap: () => _toggleLike(post['id']),
+                  onTap: () => _showReactionPicker(post['id'], post),
+                  onLongPress: () => _showReactionPicker(post['id'], post),
                   borderRadius: BorderRadius.circular(20),
                   child: Padding(
                     padding: const EdgeInsets.symmetric(
@@ -991,16 +954,22 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
                     ),
                     child: Row(
                       children: [
-                        Icon(
-                          isLiked ? Icons.favorite : Icons.favorite_border,
-                          size: 20,
-                          color:
-                              isLiked
-                                  ? Colors.red
-                                  : theme.colorScheme.onSurfaceVariant,
-                        ),
+                        if (userReaction != null)
+                          Text(
+                            _reactionEmojis[userReaction]!,
+                            style: TextStyle(fontSize: 20),
+                          )
+                        else
+                          Icon(
+                            Icons.favorite_border,
+                            size: 20,
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
                         const SizedBox(width: 4),
-                        Text('$likeCount', style: theme.textTheme.bodyMedium),
+                        Text(
+                          '$totalReactions',
+                          style: theme.textTheme.bodyMedium,
+                        ),
                       ],
                     ),
                   ),
@@ -1031,10 +1000,10 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
                   ),
                 ),
                 const Spacer(),
-                if (likeCount > 0)
+                if (totalReactions > 0)
                   TextButton(
-                    onPressed: () => _showLikesList(post['id']),
-                    child: const Text('View Likes'),
+                    onPressed: () => _showReactionsList(post['id']),
+                    child: const Text('View Reactions'),
                   ),
               ],
             ),
@@ -1042,6 +1011,167 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
         ),
       ),
     );
+  }
+
+  Future<void> _showReactionsList(int postId) async {
+    try {
+      final response = await http.get(
+        Uri.parse('${Environment.baseUrl}posts/$postId/reactions'),
+        headers: {'Content-Type': 'application/json'},
+      );
+
+      if (response.statusCode == 200) {
+        final List<dynamic> reactions = json.decode(response.body);
+
+        if (!mounted) return;
+
+        showDialog(
+          context: context,
+          builder:
+              (context) => AlertDialog(
+                title: Text('Reactions (${reactions.length})'),
+                content:
+                    reactions.isEmpty
+                        ? const Text('No reactions yet')
+                        : SizedBox(
+                          width: double.maxFinite,
+                          child: ListView.builder(
+                            shrinkWrap: true,
+                            itemCount: reactions.length,
+                            itemBuilder: (context, index) {
+                              final reaction = reactions[index];
+                              return ListTile(
+                                leading: Text(
+                                  _reactionEmojis[reaction['reaction_type']] ??
+                                      '❤️',
+                                  style: TextStyle(fontSize: 24),
+                                ),
+                                title: Text(
+                                  reaction['display_name'] ?? 'Unknown',
+                                ),
+                                subtitle: Text(
+                                  '@${reaction['username'] ?? 'unknown'}',
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text('Close'),
+                  ),
+                ],
+              ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error loading reactions: $e')));
+      }
+    }
+  }
+
+  final Map<String, String> _reactionEmojis = {
+    'heart': '❤️',
+    'laugh': '😂',
+    'sad': '😢',
+    'angry': '😠',
+    'surprised': '🤯',
+  };
+
+  Future<void> _showReactionPicker(
+    int postId,
+    Map<String, dynamic> post,
+  ) async {
+    final currentReaction = post['user_reaction'] as String?;
+    final theme = Theme.of(context);
+
+    await showDialog(
+      context: context,
+      builder:
+          (context) => Dialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    'React to this post',
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    alignment: WrapAlignment.center,
+                    children:
+                        _reactionEmojis.entries.map((entry) {
+                          final isSelected = currentReaction == entry.key;
+                          return InkWell(
+                            onTap: () {
+                              Navigator.pop(context);
+                              _addReaction(postId, entry.key);
+                            },
+                            borderRadius: BorderRadius.circular(12),
+                            child: Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color:
+                                    isSelected
+                                        ? theme.colorScheme.primaryContainer
+                                        : theme.colorScheme.surfaceVariant
+                                            .withOpacity(0.5),
+                                borderRadius: BorderRadius.circular(12),
+                                border:
+                                    isSelected
+                                        ? Border.all(
+                                          color: theme.colorScheme.primary,
+                                          width: 2,
+                                        )
+                                        : null,
+                              ),
+                              child: Text(
+                                entry.value,
+                                style: TextStyle(fontSize: 32),
+                              ),
+                            ),
+                          );
+                        }).toList(),
+                  ),
+                ],
+              ),
+            ),
+          ),
+    );
+  }
+
+  Future<void> _addReaction(int postId, String reactionType) async {
+    if (_currentUserId == null) return;
+
+    try {
+      final response = await http.post(
+        Uri.parse('${Environment.baseUrl}posts/$postId/react'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'user_id': _currentUserId,
+          'reaction_type': reactionType,
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        await _loadFeed();
+      }
+    } catch (e) {
+      // handle error
+    }
   }
 
   String _formatExpirationTime(DateTime journalDate) {
