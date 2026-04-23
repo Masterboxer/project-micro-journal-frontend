@@ -6,7 +6,7 @@ plugins {
 }
 
 android {
-    namespace = "com.masterboxer.project_micro_journal"
+    namespace = "com.masterboxer.reflecto"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = "27.0.12077973"
 
@@ -21,7 +21,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.masterboxer.project_micro_journal"
+        applicationId = "com.masterboxer.reflecto"
         minSdk = flutter.minSdkVersion  
         targetSdk = flutter.targetSdkVersion 
         versionCode = flutter.versionCode
