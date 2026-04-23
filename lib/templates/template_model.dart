@@ -35,12 +35,18 @@ class PostTemplate {
     };
   }
 
+  static const Map<String, IconData> _iconMap = {
+    'home': Icons.home,
+    'sentiment_satisfied': Icons.sentiment_satisfied,
+    'emoji_events': Icons.emoji_events,
+    'flash_on': Icons.flash_on,
+    'bookmark': Icons.bookmark,
+    'favorite': Icons.favorite,
+    'flag': Icons.flag,
+    'lightbulb': Icons.lightbulb,
+  };
+
   IconData get iconData {
-    try {
-      final codePoint = int.parse(icon, radix: 16);
-      return IconData(codePoint, fontFamily: 'MaterialIcons');
-    } catch (e) {
-      return const IconData(0xe88a, fontFamily: 'MaterialIcons');
-    }
+    return _iconMap[icon] ?? Icons.help;
   }
 }
