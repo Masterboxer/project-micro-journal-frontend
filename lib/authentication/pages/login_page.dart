@@ -1,11 +1,13 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:project_micro_journal/authentication/pages/forgot_password_page.dart';
+import 'package:project_micro_journal/authentication/pages/google_signup_page.dart';
 import 'package:project_micro_journal/authentication/services/authentication_service.dart';
 import 'package:project_micro_journal/authentication/services/authentication_token_storage_service.dart';
-import 'package:project_micro_journal/main.dart'; // CHANGED: Import main.dart for MainAppTabs
+import 'package:project_micro_journal/main.dart';
 import 'package:project_micro_journal/utils/snackbar_service.dart';
 import 'signup_page.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -33,6 +35,12 @@ class LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
   @override
   void initState() {
     super.initState();
+
+    GoogleSignIn.instance.initialize(
+      clientId:
+          '1056025366422-ek3d7gljf740ej7lbm3f9bu2ikdpl9at.apps.googleusercontent.com',
+    );
+
     _animationController = AnimationController(
       duration: Duration(milliseconds: 500),
       vsync: this,
@@ -84,7 +92,7 @@ class LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
       if (mounted) {
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(builder: (context) => const MainAppTabs()), // FIXED
+          MaterialPageRoute(builder: (context) => const MainAppTabs()),
         );
       }
     } catch (err) {
@@ -93,6 +101,61 @@ class LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
       setState(() {
         isLoading = false;
       });
+    }
+  }
+
+  Future<void> _handleGoogleSignIn() async {
+    setState(() => isLoading = true);
+
+    try {
+      final GoogleSignInAccount account =
+          await GoogleSignIn.instance.authenticate();
+
+      final String? idToken = account.authentication.idToken;
+
+      if (idToken == null) throw Exception("No ID token received");
+
+      final response = await authService.googleSignIn(idToken);
+
+      if (response['needs_onboarding'] == true) {
+        if (mounted) {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+              builder:
+                  (context) => GoogleSignUpPage(
+                    googleId: response['google_id'],
+                    email: response['email'],
+                    displayName: response['display_name'],
+                    picture: response['picture'] ?? '',
+                  ),
+            ),
+          );
+        }
+      } else {
+        await authenticationTokenStorageService.saveTokensAndId(
+          response['access_token'],
+          response['refresh_token'],
+          response['user_id'],
+        );
+        if (mounted) {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (context) => const MainAppTabs()),
+          );
+        }
+      }
+    } on GoogleSignInException catch (e) {
+      if (e.code != GoogleSignInExceptionCode.canceled) {
+        snackbarService.showErrorSnackBar(
+          context,
+          e.description ?? 'Google sign-in failed',
+        );
+      }
+    } catch (err) {
+      snackbarService.showErrorSnackBar(context, err.toString());
+    } finally {
+      setState(() => isLoading = false);
     }
   }
 
@@ -230,14 +293,54 @@ class LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
                             },
                           ),
                           SizedBox(height: 16),
-                          Align(
-                            alignment: Alignment.centerRight,
+                          Center(
                             child: TextButton(
                               onPressed: _handleForgotPassword,
                               child: Text('Forgot Password?'),
                             ),
                           ),
-                          SizedBox(height: 24),
+                          SizedBox(height: 16),
+                          Row(
+                            children: [
+                              Expanded(child: Divider()),
+                              Padding(
+                                padding: EdgeInsets.symmetric(horizontal: 12),
+                                child: Text(
+                                  'or',
+                                  style: TextStyle(
+                                    color: colorScheme.onSurfaceVariant,
+                                  ),
+                                ),
+                              ),
+                              Expanded(child: Divider()),
+                            ],
+                          ),
+                          SizedBox(height: 16),
+                          SizedBox(
+                            height: 50,
+                            child: OutlinedButton.icon(
+                              onPressed: isLoading ? null : _handleGoogleSignIn,
+                              icon: Image.asset(
+                                'assets/google_logo.png',
+                                height: 20,
+                                width: 20,
+                              ),
+                              label: Text(
+                                'Continue with Google',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                              style: OutlinedButton.styleFrom(
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                side: BorderSide(color: colorScheme.outline),
+                              ),
+                            ),
+                          ),
+                          SizedBox(height: 16),
                           SizedBox(
                             height: 50,
                             child: ElevatedButton(

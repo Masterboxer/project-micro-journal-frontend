@@ -59,6 +59,44 @@ class AuthenticationService {
     }
   }
 
+  Future<Map<String, dynamic>> googleSignIn(String idToken) async {
+    try {
+      final response = await _dio.post(
+        '/auth/google',
+        data: {'id_token': idToken},
+      );
+      return response.data;
+    } on DioException catch (e) {
+      throw Exception(e.response?.data ?? 'Google sign-in failed');
+    }
+  }
+
+  Future<Map<String, dynamic>> completeGoogleSignUp({
+    required String googleId,
+    required String email,
+    required String username,
+    required String displayName,
+    required String dob,
+    required String gender,
+  }) async {
+    try {
+      final response = await _dio.post(
+        '/auth/google/complete',
+        data: {
+          'google_id': googleId,
+          'email': email,
+          'username': username,
+          'display_name': displayName,
+          'dob': dob,
+          'gender': gender,
+        },
+      );
+      return response.data;
+    } on DioException catch (e) {
+      throw Exception(e.response?.data ?? 'Failed to complete sign up');
+    }
+  }
+
   Future<Response> logout(BuildContext context, String refreshToken) async {
     try {
       final response = await _dio.post(
