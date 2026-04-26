@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
-import 'package:project_micro_journal/authentication/pages/signup_page.dart';
+import 'package:project_micro_journal/authentication/pages/login_page.dart';
 import 'package:project_micro_journal/authentication/services/authentication_token_storage_service.dart';
 import 'package:project_micro_journal/environment/development.dart';
 import 'package:project_micro_journal/templates/template_service.dart';
@@ -201,7 +201,7 @@ class _ProfilePageState extends State<ProfilePage> {
       await _authStorage.clearTokens();
       if (mounted) {
         Navigator.of(context).pushAndRemoveUntil(
-          MaterialPageRoute(builder: (context) => const SignupPage()),
+          MaterialPageRoute(builder: (context) => const LoginPage()),
           (route) => false,
         );
       }

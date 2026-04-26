@@ -1,6 +1,6 @@
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
-import 'package:project_micro_journal/authentication/pages/signup_page.dart';
+import 'package:project_micro_journal/authentication/pages/login_page.dart';
 import 'package:project_micro_journal/authentication/services/authentication_token_storage_service.dart';
 import 'package:project_micro_journal/firebase_options.dart';
 import 'package:project_micro_journal/followers/page/followers_page.dart';
@@ -68,7 +68,7 @@ class AppInitializer extends StatelessWidget {
         } else if (hasToken != null) {
           return const MainAppTabs();
         } else {
-          return const SignupPage();
+          return const LoginPage();
         }
       },
     );

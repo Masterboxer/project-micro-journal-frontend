@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:project_micro_journal/authentication/pages/signup_page.dart';
+import 'package:project_micro_journal/authentication/pages/login_page.dart';
 import 'package:project_micro_journal/utils/notifications_permissions_page.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -116,7 +116,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
 
     if (mounted) {
       Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (context) => const SignupPage()),
+        MaterialPageRoute(builder: (context) => const LoginPage()),
       );
     }
   }
