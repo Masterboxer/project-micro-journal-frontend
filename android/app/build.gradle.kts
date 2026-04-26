@@ -24,7 +24,7 @@ android {
         applicationId = "com.masterboxer.reflecto"
         minSdk = 24
         targetSdk = 37
-        versionCode = flutter.versionCode
+        versionCode = rootProject.extra["defaultVersionCode"] as Int
         versionName = flutter.versionName
         multiDexEnabled = true
     }
