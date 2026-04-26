@@ -18,72 +18,74 @@ class NotificationPermissionPage extends StatelessWidget {
           child: Column(
             children: [
               Expanded(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    // Notification Icon
-                    Container(
-                      width: 120,
-                      height: 120,
-                      decoration: BoxDecoration(
-                        color: theme.colorScheme.primaryContainer,
-                        shape: BoxShape.circle,
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      // Notification Icon
+                      Container(
+                        width: 120,
+                        height: 120,
+                        decoration: BoxDecoration(
+                          color: theme.colorScheme.primaryContainer,
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(
+                          Icons.notifications_active_outlined,
+                          size: 60,
+                          color: theme.colorScheme.primary,
+                        ),
                       ),
-                      child: Icon(
-                        Icons.notifications_active_outlined,
-                        size: 60,
-                        color: theme.colorScheme.primary,
-                      ),
-                    ),
-                    const SizedBox(height: 32),
+                      const SizedBox(height: 32),
 
-                    // Title
-                    Text(
-                      'Stay Connected',
-                      style: theme.textTheme.headlineMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
-                        color: theme.colorScheme.onSurface,
+                      // Title
+                      Text(
+                        'Stay Connected',
+                        style: theme.textTheme.headlineMedium?.copyWith(
+                          fontWeight: FontWeight.bold,
+                          color: theme.colorScheme.onSurface,
+                        ),
+                        textAlign: TextAlign.center,
                       ),
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 16),
+                      const SizedBox(height: 16),
 
-                    // Description
-                    Text(
-                      'Enable notifications to stay up to date with your friends and never miss important updates.',
-                      style: theme.textTheme.bodyLarge?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
-                        height: 1.5,
+                      // Description
+                      Text(
+                        'Enable notifications to stay up to date with your friends and never miss important updates.',
+                        style: theme.textTheme.bodyLarge?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                          height: 1.5,
+                        ),
+                        textAlign: TextAlign.center,
                       ),
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 40),
+                      const SizedBox(height: 40),
 
-                    // Feature Cards
-                    _buildFeatureCard(
-                      theme,
-                      icon: Icons.people_outline,
-                      title: 'Friend Updates',
-                      description:
-                          'Get notified when your friends share new posts',
-                    ),
-                    const SizedBox(height: 16),
-                    _buildFeatureCard(
-                      theme,
-                      icon: Icons.person_add_outlined,
-                      title: 'Follow Requests',
-                      description:
-                          'Stay informed about new follow requests and approvals',
-                    ),
-                    const SizedBox(height: 16),
-                    _buildFeatureCard(
-                      theme,
-                      icon: Icons.favorite_outline,
-                      title: 'Engagement',
-                      description:
-                          'Know when friends like or comment on your posts',
-                    ),
-                  ],
+                      // Feature Cards
+                      _buildFeatureCard(
+                        theme,
+                        icon: Icons.people_outline,
+                        title: 'Friend Updates',
+                        description:
+                            'Get notified when your friends share new posts',
+                      ),
+                      const SizedBox(height: 16),
+                      _buildFeatureCard(
+                        theme,
+                        icon: Icons.person_add_outlined,
+                        title: 'Follow Requests',
+                        description:
+                            'Stay informed about new follow requests and approvals',
+                      ),
+                      const SizedBox(height: 16),
+                      _buildFeatureCard(
+                        theme,
+                        icon: Icons.favorite_outline,
+                        title: 'Engagement',
+                        description:
+                            'Know when friends like or comment on your posts',
+                      ),
+                    ],
+                  ),
                 ),
               ),
 

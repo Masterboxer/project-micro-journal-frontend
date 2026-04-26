@@ -76,7 +76,8 @@ class _ProfilePageState extends State<ProfilePage> {
     );
 
     if (response.statusCode == 200) {
-      final List<dynamic> postsData = json.decode(response.body);
+      final decoded = json.decode(response.body);
+      final List<dynamic> postsData = (decoded is List) ? decoded : [];
 
       setState(() {
         _userPosts =
@@ -296,7 +297,10 @@ class _ProfilePageState extends State<ProfilePage> {
             ),
           ),
           _userPosts.isEmpty
-              ? SliverFillRemaining(child: _buildEmptyState(theme))
+              ? SliverFillRemaining(
+                hasScrollBody: false,
+                child: _buildEmptyState(theme),
+              )
               : SliverPadding(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 sliver: SliverList(
@@ -549,29 +553,31 @@ class _ProfilePageState extends State<ProfilePage> {
 
   Widget _buildEmptyState(ThemeData theme) {
     return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            Icons.edit_note_outlined,
-            size: 80,
-            color: theme.colorScheme.primary.withOpacity(0.5),
-          ),
-          const SizedBox(height: 24),
-          Text(
-            'No posts yet',
-            style: theme.textTheme.headlineSmall?.copyWith(
-              fontWeight: FontWeight.bold,
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.edit_note_outlined,
+              size: 80,
+              color: theme.colorScheme.primary.withOpacity(0.5),
             ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Start journaling to see your posts here',
-            style: theme.textTheme.bodyMedium?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
+            const SizedBox(height: 24),
+            Text(
+              'No posts yet',
+              style: theme.textTheme.headlineSmall?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
             ),
-          ),
-        ],
+            const SizedBox(height: 8),
+            Text(
+              'Start journaling to see your posts here',
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

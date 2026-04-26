@@ -1,5 +1,5 @@
 ```
-flutter run -d web-server --web-port 5000
+flutter run -d chrome --web-port 5000
 ```
 
 ```
