@@ -7,7 +7,7 @@ plugins {
 
 android {
     namespace = "com.masterboxer.reflecto"
-    compileSdk = flutter.compileSdkVersion
+    compileSdk = 36
     ndkVersion = "27.0.12077973"
 
     compileOptions {
@@ -22,8 +22,8 @@ android {
 
     defaultConfig {
         applicationId = "com.masterboxer.reflecto"
-        minSdk = flutter.minSdkVersion  
-        targetSdk = flutter.targetSdkVersion 
+        minSdk = 24
+        targetSdk = 37
         versionCode = flutter.versionCode
         versionName = flutter.versionName
         multiDexEnabled = true
