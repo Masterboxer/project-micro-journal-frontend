@@ -128,17 +128,11 @@ class GoogleSignUpPageState extends State<GoogleSignUpPage> {
                     mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      // Show Google profile picture if available
                       CircleAvatar(
                         radius: 40,
                         backgroundImage:
-                            widget.picture.isNotEmpty
-                                ? NetworkImage(widget.picture)
-                                : null,
-                        child:
-                            widget.picture.isEmpty
-                                ? Icon(Icons.person, size: 40)
-                                : null,
+                            const AssetImage('assets/icon.png')
+                                as ImageProvider,
                       ),
                       SizedBox(height: 16),
                       Text(
