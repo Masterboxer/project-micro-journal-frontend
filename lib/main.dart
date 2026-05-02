@@ -96,6 +96,7 @@ class MainAppTabs extends StatefulWidget {
 
 class _MainAppTabsState extends State<MainAppTabs> {
   int _currentIndex = 0;
+  int _pendingFollowRequests = 0;
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   final GlobalKey<HomePageState> _homePageKey = GlobalKey<HomePageState>();
 
@@ -106,7 +107,11 @@ class _MainAppTabsState extends State<MainAppTabs> {
     super.initState();
     _tabs = [
       HomePage(key: _homePageKey),
-      const FollowersPage(),
+      FollowersPage(
+        onPendingCountChanged: (count) {
+          if (mounted) setState(() => _pendingFollowRequests = count);
+        },
+      ),
       const ProfilePage(),
     ];
   }
@@ -129,18 +134,26 @@ class _MainAppTabsState extends State<MainAppTabs> {
               _currentIndex = index;
             });
           },
-          destinations: const [
-            NavigationDestination(
+          destinations: [
+            const NavigationDestination(
               icon: Icon(Icons.home_outlined),
               selectedIcon: Icon(Icons.home_filled),
               label: 'Home',
             ),
             NavigationDestination(
-              icon: Icon(Icons.people_outlined),
-              selectedIcon: Icon(Icons.people),
+              icon: Badge(
+                isLabelVisible: _pendingFollowRequests > 0,
+                label: Text('$_pendingFollowRequests'),
+                child: const Icon(Icons.people_outlined),
+              ),
+              selectedIcon: Badge(
+                isLabelVisible: _pendingFollowRequests > 0,
+                label: Text('$_pendingFollowRequests'),
+                child: const Icon(Icons.people),
+              ),
               label: 'Followers',
             ),
-            NavigationDestination(
+            const NavigationDestination(
               icon: Icon(Icons.person_outlined),
               selectedIcon: Icon(Icons.person),
               label: 'Profile',

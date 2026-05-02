@@ -5,7 +5,8 @@ import '../models/user_search_result.dart';
 import '../models/follow_stats.dart';
 
 class FollowersPage extends StatefulWidget {
-  const FollowersPage({super.key});
+  final void Function(int count)? onPendingCountChanged;
+  const FollowersPage({super.key, this.onPendingCountChanged});
 
   @override
   State<FollowersPage> createState() => _FollowersPageState();
@@ -123,6 +124,7 @@ class _FollowersPageState extends State<FollowersPage>
         setState(() {
           _pendingRequests = pending;
           _isLoadingPending = false;
+          widget.onPendingCountChanged?.call(pending.length);
         });
       }
     } catch (e) {
