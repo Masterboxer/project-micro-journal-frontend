@@ -195,6 +195,54 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
     }
   }
 
+  Future<void> _editPost(Map<String, dynamic> post) async {
+    final newText = await showDialog<String>(
+      context: context,
+      barrierDismissible: true,
+      builder:
+          (dialogContext) =>
+              _EditPostDialog(initialText: post['text'] as String),
+    );
+
+    if (!mounted) return;
+    if (newText == null || newText == post['text']) return;
+
+    try {
+      final response = await http.put(
+        Uri.parse('${Environment.baseUrl}posts/${post['id']}'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'user_id': _currentUserId, 'text': newText}),
+      );
+
+      if (!mounted) return;
+
+      if (response.statusCode == 200) {
+        await _loadFeed();
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Post updated successfully'),
+            backgroundColor: Colors.green,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Failed to update post'),
+            backgroundColor: Colors.red,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+      );
+    }
+  }
+
   Future<void> _initializeLocalNotifications() async {
     const AndroidInitializationSettings androidSettings =
         AndroidInitializationSettings('@mipmap/ic_launcher');
@@ -337,8 +385,8 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
             'timestamp': DateTime.parse(post['created_at']),
             'userName': post['display_name'] ?? post['username'] ?? 'User',
             'comment_count': post['comment_count'] ?? 0,
-            'reactions': post['reactions'] ?? {}, // {'like': 5, 'love': 3, ...}
-            'user_reaction': post['user_reaction'], // 'like', 'love', etc.
+            'reactions': post['reactions'] ?? {},
+            'user_reaction': post['user_reaction'],
             'total_reactions': post['total_reactions'] ?? 0,
           };
 
@@ -711,8 +759,7 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
             : post['timestamp'] as DateTime;
     final commentCount = post['comment_count'] as int;
     final totalReactions = post['total_reactions'] as int? ?? 0;
-    final userReaction =
-        post['user_reaction'] as String?; // 'heart', 'laugh', etc.
+    final userReaction = post['user_reaction'] as String?;
 
     return Card(
       child: Padding(
@@ -720,7 +767,6 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Header with template and delete button
             Row(
               children: [
                 Icon(
@@ -739,6 +785,15 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
                   ),
                 ),
                 IconButton(
+                  onPressed: () => _editPost(post),
+                  icon: Icon(
+                    Icons.edit_outlined,
+                    size: 20,
+                    color: theme.colorScheme.primary.withOpacity(0.7),
+                  ),
+                  tooltip: 'Edit post',
+                ),
+                IconButton(
                   onPressed: () => _deletePost(post['id']),
                   icon: Icon(
                     Icons.delete_outline,
@@ -752,7 +807,6 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
             const SizedBox(height: 12),
 
-            // Status badges
             Row(
               children: [
                 _buildBadge(
@@ -775,13 +829,11 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
             const SizedBox(height: 16),
 
-            // Post content
             Text(post['text'], style: theme.textTheme.bodyLarge),
 
             const SizedBox(height: 12),
             const Divider(),
 
-            // Actions row
             Row(
               children: [
                 InkWell(
@@ -1377,6 +1429,62 @@ class CommentsBottomSheet extends StatefulWidget {
 
   @override
   State<CommentsBottomSheet> createState() => _CommentsBottomSheetState();
+}
+
+class _EditPostDialog extends StatefulWidget {
+  final String initialText;
+  const _EditPostDialog({required this.initialText});
+
+  @override
+  State<_EditPostDialog> createState() => _EditPostDialogState();
+}
+
+class _EditPostDialogState extends State<_EditPostDialog> {
+  late final TextEditingController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController(text: widget.initialText);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Edit Post'),
+      content: TextField(
+        controller: _controller,
+        maxLength: 280,
+        maxLines: 5,
+        autofocus: true,
+        decoration: InputDecoration(
+          hintText: "What's on your mind?",
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          onPressed: () {
+            final trimmed = _controller.text.trim();
+            if (trimmed.isNotEmpty) {
+              Navigator.of(context).pop(trimmed);
+            }
+          },
+          child: const Text('Save'),
+        ),
+      ],
+    );
+  }
 }
 
 class _CommentsBottomSheetState extends State<CommentsBottomSheet> {
