@@ -840,7 +840,7 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
                         if (userReaction != null)
                           Text(
                             _reactionEmojis[userReaction]!,
-                            style: TextStyle(fontSize: 20),
+                            style: const TextStyle(fontSize: 20),
                           )
                         else
                           Icon(
@@ -883,6 +883,11 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
                   ),
                 ),
                 const Spacer(),
+                if (totalReactions > 0)
+                  TextButton(
+                    onPressed: () => _showReactionsList(post['id']),
+                    child: const Text('View Reactions'),
+                  ),
               ],
             ),
           ],
@@ -1058,7 +1063,7 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
   Future<void> _showReactionsList(int postId) async {
     try {
       final response = await http.get(
-        Uri.parse('${Environment.baseUrl}posts/$postId/reactions'),
+        Uri.parse('${Environment.baseUrl}posts/$postId/reacts'),
         headers: {'Content-Type': 'application/json'},
       );
 
