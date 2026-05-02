@@ -1,4 +1,9 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import 'package:project_micro_journal/authentication/services/authentication_token_storage_service.dart';
+import 'package:project_micro_journal/environment/development.dart';
 import 'package:project_micro_journal/followers/service/followers_service.dart';
 import '../models/follower.dart';
 import '../models/user_search_result.dart';
@@ -16,6 +21,9 @@ class _FollowersPageState extends State<FollowersPage>
     with SingleTickerProviderStateMixin, WidgetsBindingObserver {
   final FollowersService _followersService = FollowersService();
   final TextEditingController _searchController = TextEditingController();
+  final AuthenticationTokenStorageService _authStorage =
+      AuthenticationTokenStorageService();
+  Map<int, int> _userStreaks = {};
 
   late TabController _tabController;
 
@@ -74,6 +82,14 @@ class _FollowersPageState extends State<FollowersPage>
       _loadPendingRequests(),
       _loadStats(),
     ]);
+
+    final allUserIds =
+        {
+          ..._followers.map((f) => f.id),
+          ..._following.map((f) => f.id),
+          ..._pendingRequests.map((f) => f.id),
+        }.toList();
+    await _loadStreaksForUsers(allUserIds);
   }
 
   Future<void> _loadFollowers() async {
@@ -96,6 +112,40 @@ class _FollowersPageState extends State<FollowersPage>
     }
   }
 
+  Future<void> _loadStreaksForUsers(List<int> userIds) async {
+    if (userIds.isEmpty) return;
+    try {
+      final String? token = await _authStorage.getAccessToken();
+      final results = await Future.wait(
+        userIds.map((id) async {
+          try {
+            final response = await http.get(
+              Uri.parse('${Environment.baseUrl}users/$id/streak'),
+              headers: {
+                'Authorization': 'Bearer $token',
+                'Content-Type': 'application/json',
+              },
+            );
+            if (response.statusCode == 200) {
+              final data = json.decode(response.body);
+              if (data['exists'] != false) {
+                return MapEntry(id, (data['streak_count'] as int? ?? 0));
+              }
+            }
+          } catch (_) {}
+          return MapEntry(id, 0);
+        }),
+      );
+      if (mounted) {
+        setState(() {
+          _userStreaks = Map.fromEntries(results);
+        });
+      }
+    } catch (e) {
+      print('Error loading user streaks: $e');
+    }
+  }
+
   Future<void> _loadFollowing() async {
     setState(() => _isLoadingFollowing = true);
     try {
@@ -114,6 +164,27 @@ class _FollowersPageState extends State<FollowersPage>
         });
       }
     }
+  }
+
+  Widget _buildStreakBadge(int userId) {
+    final streak = _userStreaks[userId] ?? 0;
+    if (streak == 0) return const SizedBox.shrink();
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        const Icon(Icons.local_fire_department, size: 18, color: Colors.orange),
+        const SizedBox(width: 2),
+        Text(
+          '$streak',
+          style: const TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+            color: Colors.orange,
+          ),
+        ),
+      ],
+    );
   }
 
   Future<void> _loadPendingRequests() async {
@@ -800,10 +871,20 @@ class _FollowersPageState extends State<FollowersPage>
                           ),
                         ),
                       ),
-                      title: Text(
-                        request.displayName,
-                        style: const TextStyle(fontWeight: FontWeight.bold),
-                        overflow: TextOverflow.ellipsis,
+                      title: Row(
+                        children: [
+                          Flexible(
+                            child: Text(
+                              request.displayName,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          _buildStreakBadge(request.id),
+                        ],
                       ),
                       subtitle: Text(
                         '@${request.username}',
@@ -882,10 +963,20 @@ class _FollowersPageState extends State<FollowersPage>
                           ),
                         ),
                       ),
-                      title: Text(
-                        follower.displayName,
-                        style: const TextStyle(fontWeight: FontWeight.bold),
-                        overflow: TextOverflow.ellipsis,
+                      title: Row(
+                        children: [
+                          Flexible(
+                            child: Text(
+                              follower.displayName,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          _buildStreakBadge(follower.id),
+                        ],
                       ),
                       subtitle: Text(
                         '@${follower.username}',
@@ -970,10 +1061,20 @@ class _FollowersPageState extends State<FollowersPage>
                           ),
                         ),
                       ),
-                      title: Text(
-                        user.displayName,
-                        style: const TextStyle(fontWeight: FontWeight.bold),
-                        overflow: TextOverflow.ellipsis,
+                      title: Row(
+                        children: [
+                          Flexible(
+                            child: Text(
+                              user.displayName,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          _buildStreakBadge(user.id),
+                        ],
                       ),
                       subtitle: Text(
                         '@${user.username}',
