@@ -1570,13 +1570,14 @@ class _CommentsBottomSheetState extends State<CommentsBottomSheet> {
   Future<void> _loadComments() async {
     try {
       final response = await http.get(
-        Uri.parse('${Environment.baseUrl}posts/${widget.postId}/comments'),
+        Uri.parse(
+          '${Environment.baseUrl}posts/${widget.postId}/comments?user_id=${widget.currentUserId}',
+        ),
         headers: {'Content-Type': 'application/json'},
       );
 
       if (response.statusCode == 200) {
         final dynamic responseBody = json.decode(response.body);
-
         List<Map<String, dynamic>> commentsData;
         if (responseBody == null) {
           commentsData = [];
@@ -1585,7 +1586,6 @@ class _CommentsBottomSheetState extends State<CommentsBottomSheet> {
         } else {
           commentsData = [];
         }
-
         if (mounted) {
           setState(() {
             _comments = commentsData;
@@ -1593,12 +1593,11 @@ class _CommentsBottomSheetState extends State<CommentsBottomSheet> {
           });
         }
       } else {
-        if (mounted) {
+        if (mounted)
           setState(() {
             _comments = [];
             _isLoading = false;
           });
-        }
       }
     } catch (e) {
       if (mounted) {
@@ -1609,6 +1608,69 @@ class _CommentsBottomSheetState extends State<CommentsBottomSheet> {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text('Error loading comments: $e')));
+      }
+    }
+  }
+
+  Future<void> _likeComment(int commentId) async {
+    try {
+      final response = await http.post(
+        Uri.parse('${Environment.baseUrl}comments/$commentId/like'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'user_id': widget.currentUserId}),
+      );
+      if (response.statusCode == 200) {
+        await _loadComments();
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error: $e')));
+      }
+    }
+  }
+
+  Future<void> _deleteComment(int commentId) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder:
+          (ctx) => AlertDialog(
+            title: const Text('Delete Comment'),
+            content: const Text('Delete this comment?'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: const Text('Cancel'),
+              ),
+              FilledButton(
+                style: FilledButton.styleFrom(
+                  backgroundColor: Theme.of(context).colorScheme.error,
+                ),
+                onPressed: () => Navigator.pop(ctx, true),
+                child: const Text('Delete'),
+              ),
+            ],
+          ),
+    );
+
+    if (confirm != true || !mounted) return;
+
+    try {
+      final response = await http.delete(
+        Uri.parse('${Environment.baseUrl}comments/$commentId'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'user_id': widget.currentUserId}),
+      );
+      if (response.statusCode == 200) {
+        await _loadComments();
+        widget.onCommentAdded(); // refresh parent feed count
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error: $e')));
       }
     }
   }
@@ -1724,6 +1786,13 @@ class _CommentsBottomSheetState extends State<CommentsBottomSheet> {
                         itemCount: _comments.length,
                         itemBuilder: (context, index) {
                           final comment = _comments[index];
+                          final isOwner =
+                              (comment['user_id'] as int) ==
+                              widget.currentUserId;
+                          final likeCount = comment['like_count'] as int? ?? 0;
+                          final userLiked =
+                              comment['user_liked'] as bool? ?? false;
+
                           return ListTile(
                             leading: CircleAvatar(
                               child: Text(
@@ -1751,6 +1820,85 @@ class _CommentsBottomSheetState extends State<CommentsBottomSheet> {
                               ],
                             ),
                             isThreeLine: true,
+                            trailing: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                // Show like count to everyone, but only show tappable heart to non-owners
+                                if (likeCount > 0 && isOwner)
+                                  Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 6,
+                                      vertical: 4,
+                                    ),
+                                    child: Row(
+                                      children: [
+                                        Icon(
+                                          Icons.favorite,
+                                          size: 16,
+                                          color: Colors.red,
+                                        ),
+                                        const SizedBox(width: 3),
+                                        Text(
+                                          '$likeCount',
+                                          style: theme.textTheme.bodySmall,
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                if (!isOwner)
+                                  InkWell(
+                                    onTap:
+                                        () =>
+                                            _likeComment(comment['id'] as int),
+                                    borderRadius: BorderRadius.circular(16),
+                                    child: Padding(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 6,
+                                        vertical: 4,
+                                      ),
+                                      child: Row(
+                                        children: [
+                                          Icon(
+                                            userLiked
+                                                ? Icons.favorite
+                                                : Icons.favorite_border,
+                                            size: 16,
+                                            color:
+                                                userLiked
+                                                    ? Colors.red
+                                                    : theme
+                                                        .colorScheme
+                                                        .onSurfaceVariant,
+                                          ),
+                                          if (likeCount > 0) ...[
+                                            const SizedBox(width: 3),
+                                            Text(
+                                              '$likeCount',
+                                              style: theme.textTheme.bodySmall,
+                                            ),
+                                          ],
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                if (isOwner)
+                                  IconButton(
+                                    icon: Icon(
+                                      Icons.delete_outline,
+                                      size: 18,
+                                      color: theme.colorScheme.error
+                                          .withOpacity(0.7),
+                                    ),
+                                    onPressed:
+                                        () => _deleteComment(
+                                          comment['id'] as int,
+                                        ),
+                                    tooltip: 'Delete comment',
+                                    padding: EdgeInsets.zero,
+                                    constraints: const BoxConstraints(),
+                                  ),
+                              ],
+                            ),
                           );
                         },
                       ),
