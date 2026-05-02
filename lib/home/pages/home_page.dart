@@ -706,21 +706,11 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
           const SizedBox(height: 24),
 
           if (_userPosts.isNotEmpty) ...[
-            Text(
-              'Your Posts (${_userPosts.length})',
-              style: theme.textTheme.titleLarge?.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
+            _CollapsibleUserPosts(
+              posts: _userPosts,
+              buildCard: (post) => _buildUserPostCard(theme, post),
+              theme: theme,
             ),
-            const SizedBox(height: 16),
-            ..._userPosts
-                .map(
-                  (post) => Padding(
-                    padding: const EdgeInsets.only(bottom: 16),
-                    child: _buildUserPostCard(theme, post),
-                  ),
-                )
-                .toList(),
             const SizedBox(height: 24),
           ],
 
@@ -1437,6 +1427,79 @@ class _EditPostDialog extends StatefulWidget {
 
   @override
   State<_EditPostDialog> createState() => _EditPostDialogState();
+}
+
+class _CollapsibleUserPosts extends StatefulWidget {
+  final List<Map<String, dynamic>> posts;
+  final Widget Function(Map<String, dynamic> post) buildCard;
+  final ThemeData theme;
+
+  const _CollapsibleUserPosts({
+    required this.posts,
+    required this.buildCard,
+    required this.theme,
+  });
+
+  @override
+  State<_CollapsibleUserPosts> createState() => _CollapsibleUserPostsState();
+}
+
+class _CollapsibleUserPostsState extends State<_CollapsibleUserPosts> {
+  bool _expanded = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        InkWell(
+          onTap: () => setState(() => _expanded = !_expanded),
+          borderRadius: BorderRadius.circular(8),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 4),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    'Your Posts (${widget.posts.length})',
+                    style: widget.theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w500,
+                      color: widget.theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ),
+                AnimatedRotation(
+                  turns: _expanded ? 0.5 : 0,
+                  duration: const Duration(milliseconds: 200),
+                  child: Icon(
+                    Icons.keyboard_arrow_down,
+                    color: widget.theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        AnimatedCrossFade(
+          firstChild: const SizedBox.shrink(),
+          secondChild: Column(
+            children: [
+              const SizedBox(height: 12),
+              ...widget.posts.map(
+                (post) => Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: widget.buildCard(post),
+                ),
+              ),
+            ],
+          ),
+          crossFadeState:
+              _expanded ? CrossFadeState.showSecond : CrossFadeState.showFirst,
+          duration: const Duration(milliseconds: 250),
+        ),
+      ],
+    );
+  }
 }
 
 class _EditPostDialogState extends State<_EditPostDialog> {
