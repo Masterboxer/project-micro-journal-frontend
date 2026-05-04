@@ -1754,31 +1754,37 @@ class _CommentsBottomSheetState extends State<CommentsBottomSheet> {
                   _isLoading
                       ? const Center(child: CircularProgressIndicator())
                       : _comments.isEmpty
-                      ? Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(
-                              Icons.comment_outlined,
-                              size: 64,
-                              color: theme.colorScheme.onSurfaceVariant
-                                  .withOpacity(0.5),
+                      ? SingleChildScrollView(
+                        controller: scrollController,
+                        child: SizedBox(
+                          height: 280,
+                          child: Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  Icons.comment_outlined,
+                                  size: 64,
+                                  color: theme.colorScheme.onSurfaceVariant
+                                      .withOpacity(0.5),
+                                ),
+                                const SizedBox(height: 16),
+                                Text(
+                                  'No comments yet',
+                                  style: theme.textTheme.bodyLarge?.copyWith(
+                                    color: theme.colorScheme.onSurfaceVariant,
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  'Be the first to comment!',
+                                  style: theme.textTheme.bodyMedium?.copyWith(
+                                    color: theme.colorScheme.onSurfaceVariant,
+                                  ),
+                                ),
+                              ],
                             ),
-                            const SizedBox(height: 16),
-                            Text(
-                              'No comments yet',
-                              style: theme.textTheme.bodyLarge?.copyWith(
-                                color: theme.colorScheme.onSurfaceVariant,
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              'Be the first to comment!',
-                              style: theme.textTheme.bodyMedium?.copyWith(
-                                color: theme.colorScheme.onSurfaceVariant,
-                              ),
-                            ),
-                          ],
+                          ),
                         ),
                       )
                       : ListView.builder(
@@ -1823,7 +1829,6 @@ class _CommentsBottomSheetState extends State<CommentsBottomSheet> {
                             trailing: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                // Show like count to everyone, but only show tappable heart to non-owners
                                 if (likeCount > 0 && isOwner)
                                   Padding(
                                     padding: const EdgeInsets.symmetric(
