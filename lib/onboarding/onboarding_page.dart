@@ -30,7 +30,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
       title: "One post,\nonce a day",
       body:
           "No pressure to post more. No scrolling endlessly. Just one small reflection when you're ready.",
-      caption: "280 characters, one photo (optional)",
+      caption: "500 characters",
       primaryCTA: "Got it",
     ),
     OnboardingScreen(

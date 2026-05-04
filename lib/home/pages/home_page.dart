@@ -1528,7 +1528,7 @@ class _EditPostDialogState extends State<_EditPostDialog> {
       title: const Text('Edit Post'),
       content: TextField(
         controller: _controller,
-        maxLength: 280,
+        maxLength: 500,
         maxLines: 5,
         autofocus: true,
         decoration: InputDecoration(

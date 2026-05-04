@@ -213,7 +213,7 @@ class _CreatePostPageState extends State<CreatePostPage> {
         children: [
           Text("Today's Micro Journal", style: theme.textTheme.titleLarge),
           const SizedBox(height: 8),
-          Text('Up to 280 characters.', style: theme.textTheme.bodySmall),
+          Text('Up to 500 characters.', style: theme.textTheme.bodySmall),
           const SizedBox(height: 24),
 
           Text(
@@ -487,7 +487,7 @@ class _CreatePostPageState extends State<CreatePostPage> {
       children: [
         TextField(
           controller: _postController,
-          maxLength: 280,
+          maxLength: 500,
           maxLines: 5,
           enabled: !_isSubmitting && _selectedTemplate != null,
           decoration: InputDecoration(
@@ -505,7 +505,7 @@ class _CreatePostPageState extends State<CreatePostPage> {
           mainAxisAlignment: MainAxisAlignment.end,
           children: [
             Text(
-              '${_postController.text.length}/280',
+              '${_postController.text.length}/500',
               style: theme.textTheme.bodySmall?.copyWith(
                 color:
                     _postController.text.length > 260
@@ -556,7 +556,7 @@ class _CreatePostPageState extends State<CreatePostPage> {
                           const SizedBox(width: 12),
                           Flexible(
                             child: Text(
-                              'Submit today\'s post (${_postController.text.length}/280)',
+                              'Submit today\'s post (${_postController.text.length}/500)',
                               style: const TextStyle(
                                 fontSize: 16,
                                 fontWeight: FontWeight.w600,
