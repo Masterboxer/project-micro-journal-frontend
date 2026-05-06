@@ -806,15 +806,6 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
                   background: theme.colorScheme.surfaceVariant,
                   foreground: theme.colorScheme.onSurfaceVariant,
                 ),
-                const SizedBox(width: 8),
-                _buildBadge(
-                  icon: Icons.timer_outlined,
-                  label: _getPostedLabel(journalDate),
-                  background: theme.colorScheme.primaryContainer.withOpacity(
-                    0.9,
-                  ),
-                  foreground: theme.colorScheme.onPrimaryContainer,
-                ),
               ],
             ),
 
