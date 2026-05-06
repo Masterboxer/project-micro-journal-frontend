@@ -124,38 +124,39 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
   }
 
   String _getPostedLabel(DateTime journalDate) {
+    final local = journalDate.toLocal();
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
-    final postDate = DateTime(
-      journalDate.year,
-      journalDate.month,
-      journalDate.day,
-    );
-
+    final postDate = DateTime(local.year, local.month, local.day);
     final diff = today.difference(postDate).inDays;
-
-    if (diff == 0) return 'Posted today';
-    if (diff == 1) return 'Posted yesterday';
-    return 'Posted $diff days ago';
+    final timeStr = _formatTime(local);
+    if (diff == 0) return 'Today at $timeStr';
+    if (diff == 1) return 'Yesterday at $timeStr';
+    final day = local.day.toString().padLeft(2, '0');
+    final month = local.month.toString().padLeft(2, '0');
+    return '$day/$month/${local.year} at $timeStr';
   }
 
-  String _getExpiryLabel(DateTime journalDate) {
-    final postDate = DateTime(
-      journalDate.year,
-      journalDate.month,
-      journalDate.day,
-    );
-    final expiresAt = postDate.add(const Duration(days: 2));
+  String _formatExpirationTime(DateTime journalDate) {
+    final local = journalDate.toLocal();
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final postDate = DateTime(local.year, local.month, local.day);
+    final diff = today.difference(postDate).inDays;
+    final timeStr = _formatTime(local);
+    if (diff == 0) return 'Today at $timeStr';
+    if (diff == 1) return 'Yesterday at $timeStr';
+    final day = local.day.toString().padLeft(2, '0');
+    final month = local.month.toString().padLeft(2, '0');
+    return '$day/$month/${local.year} at $timeStr';
+  }
 
-    final today = DateTime.now();
-    final todayDate = DateTime(today.year, today.month, today.day);
-
-    final diff = expiresAt.difference(todayDate).inDays;
-
-    if (diff < 0) return 'Expired';
-    if (diff == 0) return 'Expires today';
-    if (diff == 1) return 'Expires tomorrow';
-    return 'Expires in $diff days';
+  String _formatTime(DateTime dt) {
+    final hour = dt.hour;
+    final minute = dt.minute.toString().padLeft(2, '0');
+    final period = hour >= 12 ? 'PM' : 'AM';
+    final displayHour = hour % 12 == 0 ? 12 : hour % 12;
+    return '$displayHour:$minute $period';
   }
 
   Future<bool> _hasPostedToday() async {
@@ -808,7 +809,7 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
                 const SizedBox(width: 8),
                 _buildBadge(
                   icon: Icons.timer_outlined,
-                  label: _getExpiryLabel(journalDate),
+                  label: _getPostedLabel(journalDate),
                   background: theme.colorScheme.primaryContainer.withOpacity(
                     0.9,
                   ),
@@ -1218,35 +1219,6 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
       }
     } catch (e) {
       // handle error
-    }
-  }
-
-  String _formatExpirationTime(DateTime journalDate) {
-    final now = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
-    final postDate = DateTime(
-      journalDate.year,
-      journalDate.month,
-      journalDate.day,
-    );
-
-    final expirationDate = postDate.add(const Duration(days: 2));
-    final expiresAt = DateTime(
-      expirationDate.year,
-      expirationDate.month,
-      expirationDate.day,
-    );
-
-    final difference = expiresAt.difference(today).inDays;
-
-    if (difference < 0) {
-      return 'Expired';
-    } else if (difference == 0) {
-      return 'Expires today';
-    } else if (difference == 1) {
-      return 'Expires tomorrow';
-    } else {
-      return 'Expires in $difference days';
     }
   }
 
@@ -1664,7 +1636,7 @@ class _CommentsBottomSheetState extends State<CommentsBottomSheet> {
       );
       if (response.statusCode == 200) {
         await _loadComments();
-        widget.onCommentAdded(); // refresh parent feed count
+        widget.onCommentAdded();
       }
     } catch (e) {
       if (mounted) {
