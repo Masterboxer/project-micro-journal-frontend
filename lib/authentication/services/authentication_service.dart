@@ -59,6 +59,18 @@ class AuthenticationService {
     }
   }
 
+  Future<void> forgotPassword(String email) async {
+    try {
+      await _dio.post(
+        '/forgot-password',
+        data: {'email': email},
+        options: Options(responseType: ResponseType.plain),
+      );
+    } on DioException catch (e) {
+      throw Exception(_handleError(e));
+    }
+  }
+
   Future<Map<String, dynamic>> googleSignIn(String idToken) async {
     try {
       final response = await _dio.post(
@@ -128,7 +140,7 @@ class AuthenticationService {
     if (error.response != null) {
       return "Server error: ${error.response?.statusCode} ${error.response?.data}";
     } else {
-      return "Connection error: ${error.message}";
+      return "Connection error: ${error.message ?? error.type.name}";
     }
   }
 }

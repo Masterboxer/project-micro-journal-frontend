@@ -60,8 +60,7 @@ class ForgotPasswordPageState extends State<ForgotPasswordPage>
     });
 
     try {
-      // TODO: Implement forgot password API call
-      // await authService.forgotPassword(_emailController.text.trim());
+      await authService.forgotPassword(_emailController.text.trim());
 
       setState(() {
         isLoading = false;
