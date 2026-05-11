@@ -1301,45 +1301,53 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
   }
 
   Widget _buildEmptyState(ThemeData theme) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            const SizedBox(height: 12),
-            _buildVerificationBanner(),
-            Icon(
-              Icons.edit_note_outlined,
-              size: 80,
-              color: theme.colorScheme.primary.withOpacity(0.5),
-            ),
-            const SizedBox(height: 24),
-            Text(
-              'No post yet today',
-              style: theme.textTheme.headlineSmall?.copyWith(
-                fontWeight: FontWeight.bold,
+    return Stack(
+      children: [
+        Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Icon(
+                Icons.edit_note_outlined,
+                size: 80,
+                color: theme.colorScheme.primary.withOpacity(0.5),
               ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 12),
-            Text(
-              'Share your thoughts and reflections for today',
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
+              const SizedBox(height: 24),
+              Text(
+                'No post yet today',
+                style: theme.textTheme.headlineSmall?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+                textAlign: TextAlign.center,
               ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 32),
-            FilledButton.icon(
-              onPressed: createNewPost,
-              icon: const Icon(Icons.add),
-              label: const Text('Create Your First Post'),
-            ),
-          ],
+              const SizedBox(height: 12),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24),
+                child: Text(
+                  'Share your thoughts and reflections for today',
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ),
+              const SizedBox(height: 32),
+              FilledButton.icon(
+                onPressed: createNewPost,
+                icon: const Icon(Icons.add),
+                label: const Text('Create Your First Post'),
+              ),
+            ],
+          ),
         ),
-      ),
+        Positioned(
+          top: 20,
+          left: 0,
+          right: 0,
+          child: _buildVerificationBanner(),
+        ),
+      ],
     );
   }
 
