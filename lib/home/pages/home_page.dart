@@ -74,54 +74,60 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
   Widget _buildVerificationBanner() {
     if (!_showVerificationBanner) return const SizedBox.shrink();
 
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    final backgroundColor =
+        isDark ? const Color(0xFF2D1A00) : const Color(0xFFFFF3E0);
+    final borderColor =
+        isDark ? const Color(0xFFBF6000) : const Color(0xFFFFB74D);
+    final titleColor =
+        isDark ? const Color(0xFFFFB74D) : const Color(0xFFE65100);
+    final bodyColor =
+        isDark ? const Color(0xFFCC8800) : const Color(0xFFF57C00);
+    final iconColor =
+        isDark ? const Color(0xFFFFB74D) : const Color(0xFFF57C00);
+
     return Container(
       margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
-        color: const Color(0xFFFFF3E0),
+        color: backgroundColor,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFFFB74D), width: 1),
+        border: Border.all(color: borderColor, width: 1),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Icon(
-            Icons.mark_email_unread_outlined,
-            color: Color(0xFFF57C00),
-            size: 20,
-          ),
+          Icon(Icons.mark_email_unread_outlined, color: iconColor, size: 20),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
+                Text(
                   'Verify your email',
                   style: TextStyle(
                     fontWeight: FontWeight.w600,
                     fontSize: 14,
-                    color: Color(0xFFE65100),
+                    color: titleColor,
                   ),
                 ),
                 const SizedBox(height: 2),
-                const Text(
+                Text(
                   'Please check your inbox and verify your email address to secure your account.',
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: Color(0xFFF57C00),
-                    height: 1.4,
-                  ),
+                  style: TextStyle(fontSize: 13, color: bodyColor, height: 1.4),
                 ),
                 const SizedBox(height: 8),
                 GestureDetector(
                   onTap: _resendVerificationEmail,
-                  child: const Text(
+                  child: Text(
                     'Resend email',
                     style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w600,
-                      color: Color(0xFFE65100),
+                      color: titleColor,
                       decoration: TextDecoration.underline,
+                      decorationColor: titleColor,
                     ),
                   ),
                 ),
@@ -130,7 +136,7 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
           ),
           GestureDetector(
             onTap: () => setState(() => _showVerificationBanner = false),
-            child: const Icon(Icons.close, size: 18, color: Color(0xFFF57C00)),
+            child: Icon(Icons.close, size: 18, color: iconColor),
           ),
         ],
       ),
@@ -1302,6 +1308,8 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
           mainAxisAlignment: MainAxisAlignment.center,
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
+            const SizedBox(height: 12),
+            _buildVerificationBanner(),
             Icon(
               Icons.edit_note_outlined,
               size: 80,
