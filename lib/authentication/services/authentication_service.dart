@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:project_micro_journal/authentication/models/login_response.dart';
+import 'package:project_micro_journal/authentication/models/signup_response.dart';
 import 'package:project_micro_journal/authentication/pages/signup_page.dart';
 import 'package:project_micro_journal/authentication/services/authentication_token_storage_service.dart';
 import 'package:project_micro_journal/environment/development.dart';
@@ -33,7 +34,7 @@ class AuthenticationService {
     }
   }
 
-  Future<Response> signup(
+  Future<SignupResponse> signup(
     String username,
     String displayName,
     String dob,
@@ -53,7 +54,8 @@ class AuthenticationService {
           'password': password,
         },
       );
-      return response;
+
+      return SignupResponse.fromJson(response.data);
     } on DioException catch (e) {
       throw Exception(_handleError(e));
     }
@@ -64,6 +66,18 @@ class AuthenticationService {
       await _dio.post(
         '/forgot-password',
         data: {'email': email},
+        options: Options(responseType: ResponseType.plain),
+      );
+    } on DioException catch (e) {
+      throw Exception(_handleError(e));
+    }
+  }
+
+  Future<void> sendVerificationEmail(String email, int userId) async {
+    try {
+      await _dio.post(
+        '/send-verification-mail',
+        data: {'user_id': userId, 'email': email},
         options: Options(responseType: ResponseType.plain),
       );
     } on DioException catch (e) {

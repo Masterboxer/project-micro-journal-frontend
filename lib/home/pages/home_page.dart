@@ -37,6 +37,7 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
   bool _isLoading = true;
   String? _error;
   int? _currentUserId;
+  bool _showVerificationBanner = false;
 
   @override
   void initState() {
@@ -58,14 +59,113 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
       }
 
       await _templateService.fetchTemplatesFromBackend();
-      await Future.wait([_loadFeed(), _loadStreak()]);
+      await Future.wait([
+        _loadFeed(),
+        _loadStreak(),
+        _loadUserVerificationStatus(),
+      ]);
     } catch (e) {
-      setState(() {
-        _error = e.toString();
-      });
+      setState(() => _error = e.toString());
     } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  Widget _buildVerificationBanner() {
+    if (!_showVerificationBanner) return const SizedBox.shrink();
+
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFF3E0),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFFFB74D), width: 1),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(
+            Icons.mark_email_unread_outlined,
+            color: Color(0xFFF57C00),
+            size: 20,
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Verify your email',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 14,
+                    color: Color(0xFFE65100),
+                  ),
+                ),
+                const SizedBox(height: 2),
+                const Text(
+                  'Please check your inbox and verify your email address to secure your account.',
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: Color(0xFFF57C00),
+                    height: 1.4,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                GestureDetector(
+                  onTap: _resendVerificationEmail,
+                  child: const Text(
+                    'Resend email',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFFE65100),
+                      decoration: TextDecoration.underline,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          GestureDetector(
+            onTap: () => setState(() => _showVerificationBanner = false),
+            child: const Icon(Icons.close, size: 18, color: Color(0xFFF57C00)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _resendVerificationEmail() async {
+    final String? email = await _authStorage.getEmail();
+    if (email == null) return;
+
+    try {
+      final response = await http.post(
+        Uri.parse('${environmentVariable}resend-verification-mail'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'email': email}),
+      );
       if (mounted) {
-        setState(() => _isLoading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              response.statusCode == 200
+                  ? 'Verification email sent! Check your inbox.'
+                  : 'Failed to resend. Please try again.',
+            ),
+            backgroundColor:
+                response.statusCode == 200 ? Colors.green : Colors.red,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+        );
       }
     }
   }
@@ -91,6 +191,27 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
       notificationDetails,
       payload: 'daily_reminder',
     );
+  }
+
+  Future<void> _loadUserVerificationStatus() async {
+    if (_currentUserId == null) return;
+    try {
+      final response = await http.get(
+        Uri.parse('${environmentVariable}users/$_currentUserId'),
+        headers: {'Content-Type': 'application/json'},
+      );
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        final verified = data['email_verified'] as bool? ?? false;
+        if (mounted) {
+          setState(() {
+            _showVerificationBanner = !verified;
+          });
+        }
+      }
+    } catch (e) {
+      print('Error checking email verification: $e');
+    }
   }
 
   Widget _buildBadge({
@@ -443,28 +564,6 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
     }
   }
 
-  Future<void> _toggleLike(int postId) async {
-    if (_currentUserId == null) return;
-
-    try {
-      final response = await http.post(
-        Uri.parse('${Environment.baseUrl}posts/$postId/like'),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({'user_id': _currentUserId}),
-      );
-
-      if (response.statusCode == 200) {
-        await _loadFeed();
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Error toggling like: $e')));
-      }
-    }
-  }
-
   Future<void> _showCommentsSheet(Map<String, dynamic> post) async {
     if (_currentUserId == null) return;
 
@@ -481,66 +580,6 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
             onCommentAdded: () => _loadFeed(),
           ),
     );
-  }
-
-  Future<void> _showLikesList(int postId) async {
-    try {
-      final response = await http.get(
-        Uri.parse('${Environment.baseUrl}posts/$postId/likes'),
-        headers: {'Content-Type': 'application/json'},
-      );
-
-      if (response.statusCode == 200) {
-        final List<dynamic> likes = json.decode(response.body);
-
-        if (!mounted) return;
-
-        showDialog(
-          context: context,
-          builder:
-              (context) => AlertDialog(
-                title: Text('Likes (${likes.length})'),
-                content:
-                    likes.isEmpty
-                        ? const Text('No likes yet')
-                        : SizedBox(
-                          width: double.maxFinite,
-                          child: ListView.builder(
-                            shrinkWrap: true,
-                            itemCount: likes.length,
-                            itemBuilder: (context, index) {
-                              final like = likes[index];
-                              return ListTile(
-                                leading: CircleAvatar(
-                                  child: Text(
-                                    (like['display_name'] ?? 'U')[0]
-                                        .toUpperCase(),
-                                  ),
-                                ),
-                                title: Text(like['display_name'] ?? 'Unknown'),
-                                subtitle: Text(
-                                  '@${like['username'] ?? 'unknown'}',
-                                ),
-                              );
-                            },
-                          ),
-                        ),
-                actions: [
-                  TextButton(
-                    onPressed: () => Navigator.pop(context),
-                    child: const Text('Close'),
-                  ),
-                ],
-              ),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Error loading likes: $e')));
-      }
-    }
   }
 
   Future<void> _showNotification(RemoteMessage message) async {
@@ -705,6 +744,8 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
         children: [
           _buildStreakSection(),
           const SizedBox(height: 24),
+          _buildVerificationBanner(),
+          const SizedBox(height: 12),
 
           if (_userPosts.isNotEmpty) ...[
             _CollapsibleUserPosts(

@@ -85,6 +85,7 @@ class LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
         loginResponse.accessToken,
         loginResponse.refreshToken,
         loginResponse.userId,
+        email: loginResponse.email,
       );
 
       setState(() {

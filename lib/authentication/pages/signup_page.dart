@@ -104,7 +104,7 @@ class SignupPageState extends State<SignupPage> with TickerProviderStateMixin {
     });
 
     try {
-      await authenticationService.signup(
+      final user = await authenticationService.signup(
         _usernameController.text.trim(),
         _displayNameController.text.trim(),
         DateFormat('yyyy-MM-dd').format(_selectedDob!),
@@ -114,6 +114,8 @@ class SignupPageState extends State<SignupPage> with TickerProviderStateMixin {
       );
 
       snackbarService.showSuccessSnackBar(context, "Signup Successful");
+
+      authenticationService.sendVerificationEmail(user.email, user.id);
 
       setState(() {
         isLoading = false;
