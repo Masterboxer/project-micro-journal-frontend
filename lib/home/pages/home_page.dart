@@ -119,15 +119,20 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
                 ),
                 const SizedBox(height: 8),
                 GestureDetector(
-                  onTap: _resendVerificationEmail,
-                  child: Text(
-                    'Resend email',
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: titleColor,
-                      decoration: TextDecoration.underline,
-                      decorationColor: titleColor,
+                  onTap: _isResendingEmail ? null : _resendVerificationEmail,
+                  behavior: HitTestBehavior.opaque,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 4),
+                    child: Text(
+                      _isResendingEmail ? 'Sending...' : 'Resend email',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: _isResendingEmail ? bodyColor : titleColor,
+                        decoration: TextDecoration.underline,
+                        decorationColor:
+                            _isResendingEmail ? bodyColor : titleColor,
+                      ),
                     ),
                   ),
                 ),
@@ -143,13 +148,20 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
     );
   }
 
+  bool _isResendingEmail = false;
+
   Future<void> _resendVerificationEmail() async {
+    if (_isResendingEmail) return;
+
     final String? email = await _authStorage.getEmail();
     if (email == null) return;
 
+    setState(() => _isResendingEmail = true);
+
     try {
+      final url = Uri.parse('${environmentVariable}resend-verification-mail');
       final response = await http.post(
-        Uri.parse('${environmentVariable}resend-verification-mail'),
+        url,
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({'email': email}),
       );
@@ -173,6 +185,8 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
           SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
         );
       }
+    } finally {
+      if (mounted) setState(() => _isResendingEmail = false);
     }
   }
 
@@ -201,22 +215,18 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
   Future<void> _loadUserVerificationStatus() async {
     if (_currentUserId == null) return;
-    try {
-      final response = await http.get(
-        Uri.parse('${environmentVariable}users/$_currentUserId'),
-        headers: {'Content-Type': 'application/json'},
-      );
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        final verified = data['email_verified'] as bool? ?? false;
-        if (mounted) {
-          setState(() {
-            _showVerificationBanner = !verified;
-          });
-        }
+    final response = await http.get(
+      Uri.parse('${environmentVariable}users/$_currentUserId'),
+      headers: {'Content-Type': 'application/json'},
+    );
+    if (response.statusCode == 200) {
+      final data = json.decode(response.body);
+      final verified = data['email_verified'] as bool? ?? false;
+      if (mounted) {
+        setState(() {
+          _showVerificationBanner = !verified;
+        });
       }
-    } catch (e) {
-      print('Error checking email verification: $e');
     }
   }
 
@@ -318,7 +328,6 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
       return false;
     } catch (e) {
-      print('Error checking if posted today: $e');
       return false;
     }
   }
@@ -547,26 +556,22 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
   Future<void> _loadStreak() async {
     if (_currentUserId == null) return;
 
-    try {
-      final String? token = await _authStorage.getAccessToken();
-      final response = await http.get(
-        Uri.parse('$environmentVariable/users/$_currentUserId/streak'),
-        headers: {
-          'Authorization': 'Bearer $token',
-          'Content-Type': 'application/json',
-        },
-      );
+    final String? token = await _authStorage.getAccessToken();
+    final response = await http.get(
+      Uri.parse('$environmentVariable/users/$_currentUserId/streak'),
+      headers: {
+        'Authorization': 'Bearer $token',
+        'Content-Type': 'application/json',
+      },
+    );
 
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        if (data['exists'] == false) {
-          setState(() => _streak = null);
-        } else {
-          setState(() => _streak = PersonalStreak.fromJson(data));
-        }
+    if (response.statusCode == 200) {
+      final data = json.decode(response.body);
+      if (data['exists'] == false) {
+        setState(() => _streak = null);
+      } else {
+        setState(() => _streak = PersonalStreak.fromJson(data));
       }
-    } catch (e) {
-      print('Error loading streak: $e');
     }
   }
 
@@ -1421,12 +1426,19 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
     super.dispose();
   }
 
+  AppLifecycleState? _lastLifecycleState;
+
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     super.didChangeAppLifecycleState(state);
+
     if (state == AppLifecycleState.resumed) {
-      _initializeData();
+      if (_lastLifecycleState == AppLifecycleState.paused) {
+        _initializeData();
+      }
     }
+
+    _lastLifecycleState = state;
   }
 }
 
