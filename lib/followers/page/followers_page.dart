@@ -112,6 +112,48 @@ class _FollowersPageState extends State<FollowersPage>
     }
   }
 
+  Future<bool> _isEmailVerified() async {
+    try {
+      final String? userId = await _authStorage.getUserId();
+      if (userId == null) return false;
+      final String? token = await _authStorage.getAccessToken();
+      final response = await http.get(
+        Uri.parse('${Environment.baseUrl}users/$userId'),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+      );
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        return data['email_verified'] as bool? ?? false;
+      }
+    } catch (e) {
+      print('Error checking email verification: $e');
+    }
+    return false;
+  }
+
+  void _showVerificationRequiredDialog() {
+    showDialog(
+      context: context,
+      builder:
+          (context) => AlertDialog(
+            icon: const Icon(Icons.mark_email_unread_outlined, size: 40),
+            title: const Text('Verify your email'),
+            content: const Text(
+              'You need to verify your email address before you can follow other users. Please check your inbox for the verification link.',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('OK'),
+              ),
+            ],
+          ),
+    );
+  }
+
   Future<void> _loadStreaksForUsers(List<int> userIds) async {
     if (userIds.isEmpty) return;
     try {
@@ -261,6 +303,10 @@ class _FollowersPageState extends State<FollowersPage>
     bool isPrivate,
   ) async {
     try {
+      if (!await _isEmailVerified()) {
+        _showVerificationRequiredDialog();
+        return;
+      }
       final result = await _followersService.followUser(userId);
       final status = result['status'] as String?;
 
@@ -285,6 +331,10 @@ class _FollowersPageState extends State<FollowersPage>
 
   Future<void> _followBackUser(int userId, String displayName) async {
     try {
+      if (!await _isEmailVerified()) {
+        _showVerificationRequiredDialog();
+        return;
+      }
       final result = await _followersService.followUser(userId);
       final status = result['status'] as String?;
 
