@@ -91,6 +91,7 @@ class GoogleSignUpPageState extends State<GoogleSignUpPage> {
         response['access_token'],
         response['refresh_token'],
         response['user_id'],
+        email: widget.email,
       );
 
       if (mounted) {

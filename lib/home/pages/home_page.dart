@@ -154,8 +154,8 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
     if (_isResendingEmail) return;
 
     final String? email = await _authStorage.getEmail();
-    if (email == null) return;
 
+    if (!mounted) return;
     setState(() => _isResendingEmail = true);
 
     try {

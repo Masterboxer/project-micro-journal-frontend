@@ -140,6 +140,7 @@ class LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
           response['access_token'],
           response['refresh_token'],
           response['user_id'],
+          email: response['email'],
         );
         if (mounted) {
           Navigator.pushReplacement(
