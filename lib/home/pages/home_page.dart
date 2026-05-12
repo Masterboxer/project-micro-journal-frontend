@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
@@ -12,6 +13,7 @@ import 'package:project_micro_journal/templates/template_service.dart';
 import 'package:project_micro_journal/utils/app_navigator.dart';
 import 'package:project_micro_journal/utils/micro_journaling_habit_page.dart';
 import 'package:project_micro_journal/utils/notifications_permissions_page.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -39,6 +41,12 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
   int? _currentUserId;
   bool _showVerificationBanner = false;
 
+  bool _isResendingEmail = false;
+  Duration? _resendCooldown;
+  Timer? _resendTimer;
+
+  static const _kResendUntilKey = 'resend_verification_until';
+
   @override
   void initState() {
     super.initState();
@@ -46,6 +54,60 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
     _initializeData();
     _initializeLocalNotifications();
     _checkAndRequestNotifications();
+    _restoreCooldownFromStorage();
+  }
+
+  Future<void> _restoreCooldownFromStorage() async {
+    final prefs = await SharedPreferences.getInstance();
+    final storedMillis = prefs.getInt(_kResendUntilKey);
+    if (storedMillis == null) return;
+
+    final retryAfter = DateTime.fromMillisecondsSinceEpoch(storedMillis);
+    final remaining = retryAfter.difference(DateTime.now());
+
+    if (remaining.isNegative || remaining == Duration.zero) {
+      await prefs.remove(_kResendUntilKey);
+      return;
+    }
+
+    _startCountdown(remaining);
+  }
+
+  void _startCountdown(Duration remaining) {
+    if (!mounted) return;
+    setState(() => _resendCooldown = remaining);
+
+    _resendTimer?.cancel();
+    _resendTimer = Timer.periodic(const Duration(seconds: 1), (timer) async {
+      if (!mounted) {
+        timer.cancel();
+        return;
+      }
+
+      final next = _resendCooldown! - const Duration(seconds: 1);
+
+      if (next <= Duration.zero) {
+        timer.cancel();
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.remove(_kResendUntilKey);
+        if (mounted) setState(() => _resendCooldown = null);
+      } else {
+        if (next.inSeconds % 10 == 0) {
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setInt(
+            _kResendUntilKey,
+            DateTime.now().add(next).millisecondsSinceEpoch,
+          );
+        }
+        if (mounted) setState(() => _resendCooldown = next);
+      }
+    });
+  }
+
+  String _formatCooldown(Duration d) {
+    final m = d.inMinutes.remainder(60).toString().padLeft(2, '0');
+    final s = d.inSeconds.remainder(60).toString().padLeft(2, '0');
+    return '$m:$s';
   }
 
   Future<void> _initializeData() async {
@@ -87,6 +149,9 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
     final iconColor =
         isDark ? const Color(0xFFFFB74D) : const Color(0xFFF57C00);
 
+    final bool onCooldown = _resendCooldown != null;
+    final bool busy = _isResendingEmail;
+
     return Container(
       margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -119,19 +184,25 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
                 ),
                 const SizedBox(height: 8),
                 GestureDetector(
-                  onTap: _isResendingEmail ? null : _resendVerificationEmail,
+                  onTap: (busy || onCooldown) ? null : _resendVerificationEmail,
                   behavior: HitTestBehavior.opaque,
                   child: Padding(
                     padding: const EdgeInsets.symmetric(vertical: 4),
                     child: Text(
-                      _isResendingEmail ? 'Sending...' : 'Resend email',
+                      busy
+                          ? 'Sending...'
+                          : onCooldown
+                          ? 'Resend in ${_formatCooldown(_resendCooldown!)}'
+                          : 'Resend email',
                       style: TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.w600,
-                        color: _isResendingEmail ? bodyColor : titleColor,
-                        decoration: TextDecoration.underline,
-                        decorationColor:
-                            _isResendingEmail ? bodyColor : titleColor,
+                        color: (busy || onCooldown) ? bodyColor : titleColor,
+                        decoration:
+                            (busy || onCooldown)
+                                ? TextDecoration.none
+                                : TextDecoration.underline,
+                        decorationColor: titleColor,
                       ),
                     ),
                   ),
@@ -148,10 +219,8 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
     );
   }
 
-  bool _isResendingEmail = false;
-
   Future<void> _resendVerificationEmail() async {
-    if (_isResendingEmail) return;
+    if (_isResendingEmail || _resendCooldown != null) return;
 
     final String? email = await _authStorage.getEmail();
 
@@ -165,16 +234,28 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({'email': email}),
       );
-      if (mounted) {
+
+      if (!mounted) return;
+
+      if (response.statusCode == 200) {
+        const cooldown = Duration(minutes: 3);
+        final retryAfter = DateTime.now().add(cooldown);
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setInt(_kResendUntilKey, retryAfter.millisecondsSinceEpoch);
+        _startCountdown(cooldown);
+
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              response.statusCode == 200
-                  ? 'Verification email sent! Check your inbox.'
-                  : 'Failed to resend. Please try again.',
-            ),
-            backgroundColor:
-                response.statusCode == 200 ? Colors.green : Colors.red,
+          const SnackBar(
+            content: Text('Verification email sent! Check your inbox.'),
+            backgroundColor: Colors.green,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Failed to resend. Please try again.'),
+            backgroundColor: Colors.red,
             behavior: SnackBarBehavior.floating,
           ),
         );
@@ -1422,6 +1503,7 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
   @override
   void dispose() {
+    _resendTimer?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
@@ -1990,9 +2072,9 @@ class _CommentsBottomSheetState extends State<CommentsBottomSheet> {
   }
 
   String _formatCommentTime(String timestamp) {
-    final dateTime = DateTime.parse(timestamp);
-    final now = DateTime.now();
-    final difference = now.difference(dateTime);
+    final DateTime dateTime = DateTime.parse(timestamp);
+    final DateTime now = DateTime.now();
+    final Duration difference = now.difference(dateTime);
 
     if (difference.inMinutes < 1) {
       return 'Just now';
