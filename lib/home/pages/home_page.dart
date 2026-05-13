@@ -126,6 +126,9 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
         _loadStreak(),
         _loadUserVerificationStatus(),
       ]);
+      if (_showVerificationBanner) {
+        _startVerificationPolling();
+      }
     } catch (e) {
       setState(() => _error = e.toString());
     } finally {
@@ -219,6 +222,21 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
     );
   }
 
+  Timer? _verificationPollTimer;
+
+  void _startVerificationPolling() {
+    _verificationPollTimer?.cancel();
+    _verificationPollTimer = Timer.periodic(const Duration(seconds: 5), (
+      _,
+    ) async {
+      if (!_showVerificationBanner) {
+        _verificationPollTimer?.cancel();
+        return;
+      }
+      await _loadUserVerificationStatus();
+    });
+  }
+
   Future<void> _resendVerificationEmail() async {
     if (_isResendingEmail || _resendCooldown != null) return;
 
@@ -304,9 +322,10 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
       final data = json.decode(response.body);
       final verified = data['email_verified'] as bool? ?? false;
       if (mounted) {
-        setState(() {
-          _showVerificationBanner = !verified;
-        });
+        setState(() => _showVerificationBanner = !verified);
+        if (verified) {
+          _verificationPollTimer?.cancel();
+        }
       }
     }
   }
@@ -1504,6 +1523,7 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
   @override
   void dispose() {
     _resendTimer?.cancel();
+    _verificationPollTimer?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
