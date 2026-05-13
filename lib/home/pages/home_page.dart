@@ -228,9 +228,7 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
     setState(() => _isResendingEmail = true);
 
     try {
-      final url = Uri.parse(
-        '${environmentVariable}api/resend-verification-mail',
-      );
+      final url = Uri.parse('${environmentVariable}resend-verification-mail');
       final response = await http.post(
         url,
         headers: {'Content-Type': 'application/json'},

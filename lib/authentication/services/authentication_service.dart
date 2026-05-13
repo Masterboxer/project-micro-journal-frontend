@@ -76,7 +76,7 @@ class AuthenticationService {
   Future<void> sendVerificationEmail(String email, int userId) async {
     try {
       await _dio.post(
-        '/api/send-verification-mail',
+        '/send-verification-mail',
         data: {'user_id': userId, 'email': email},
         options: Options(responseType: ResponseType.plain),
       );
