@@ -9,18 +9,34 @@ class AuthenticationTokenStorageService {
     String refreshToken,
     String userId, {
     String? email,
+    String? displayName,
   }) async {
     try {
       await _storage.write(key: 'access_token', value: accessToken);
       await _storage.write(key: 'refresh_token', value: refreshToken);
       await _storage.write(key: 'user_id', value: userId);
-      if (email != null) await _storage.write(key: 'email', value: email);
+
+      if (email != null) {
+        await _storage.write(key: 'email', value: email);
+      }
+
+      if (displayName != null) {
+        await _storage.write(key: 'display_name', value: displayName);
+      }
     } catch (err) {
       final prefs = await SharedPreferences.getInstance();
+
       await prefs.setString('access_token', accessToken);
       await prefs.setString('refresh_token', refreshToken);
       await prefs.setString('user_id', userId);
-      if (email != null) await prefs.setString('email', email);
+
+      if (email != null) {
+        await prefs.setString('email', email);
+      }
+
+      if (displayName != null) {
+        await prefs.setString('display_name', displayName);
+      }
     }
   }
 
@@ -33,18 +49,29 @@ class AuthenticationTokenStorageService {
     }
   }
 
+  Future<String?> getDisplayName() async {
+    try {
+      return await _storage.read(key: 'display_name');
+    } catch (err) {
+      final prefs = await SharedPreferences.getInstance();
+      return prefs.getString('display_name');
+    }
+  }
+
   Future<void> clearTokens() async {
     try {
       await _storage.delete(key: 'access_token');
       await _storage.delete(key: 'refresh_token');
       await _storage.delete(key: 'user_id');
-      await _storage.delete(key: 'email'); // add this
+      await _storage.delete(key: 'email');
+      await _storage.delete(key: 'display_name');
     } catch (err) {
       final prefs = await SharedPreferences.getInstance();
       await prefs.remove('access_token');
       await prefs.remove('refresh_token');
       await prefs.remove('user_id');
-      await prefs.remove('email'); // add this
+      await prefs.remove('email');
+      await prefs.remove('display_name');
     }
   }
 

@@ -8,6 +8,7 @@ import 'package:project_micro_journal/authentication/services/authentication_tok
 import 'package:project_micro_journal/environment/development.dart';
 import 'package:project_micro_journal/home/models/streak.dart';
 import 'package:project_micro_journal/posts/pages/create_post_page.dart';
+import 'package:project_micro_journal/posts/pages/first_post_invite_popup.dart';
 import 'package:project_micro_journal/templates/template_model.dart';
 import 'package:project_micro_journal/templates/template_service.dart';
 import 'package:project_micro_journal/utils/app_navigator.dart';
@@ -728,6 +729,8 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
     final createdPostId = result['id'];
     final shouldReloadStreak = result['should_reload_streak'] ?? false;
+    // Grab post text before any async gaps
+    final newPostText = result['text'] as String? ?? '';
 
     setState(() => _isLoading = true);
 
@@ -760,6 +763,29 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
               behavior: SnackBarBehavior.floating,
             ),
           );
+
+          // ↓ Check if this is their first-ever post and show the invite popup
+          final prefs = await SharedPreferences.getInstance();
+          final hasSeenInvitePopup =
+              prefs.getBool('has_seen_invite_popup') ?? false;
+
+          if (!hasSeenInvitePopup && mounted) {
+            await prefs.setBool('has_seen_invite_popup', true);
+
+            // Small delay so the snackbar settles first
+            await Future.delayed(const Duration(milliseconds: 600));
+
+            if (mounted) {
+              final displayName =
+                  await _authStorage.getDisplayName() ?? 'Someone';
+              await FirstPostInvitePopup.show(
+                context,
+                postText: newPostText,
+                userName: displayName,
+              );
+            }
+          }
+          // ↑ end invite popup block
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
