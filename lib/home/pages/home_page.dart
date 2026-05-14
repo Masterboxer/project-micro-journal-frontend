@@ -779,8 +779,6 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
               final displayName =
                   await _authStorage.getDisplayName() ?? 'Someone';
 
-              print("Ola, " + displayName);
-
               await FirstPostInvitePopup.show(
                 context,
                 postText: newPostText,

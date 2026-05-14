@@ -37,7 +37,6 @@ class _FollowersPageState extends State<FollowersPage>
   bool _isLoadingFollowers = false;
   bool _isLoadingFollowing = false;
   bool _isLoadingPending = false;
-  bool _isLoadingStats = false;
 
   @override
   void initState() {
@@ -113,23 +112,19 @@ class _FollowersPageState extends State<FollowersPage>
   }
 
   Future<bool> _isEmailVerified() async {
-    try {
-      final String? userId = await _authStorage.getUserId();
-      if (userId == null) return false;
-      final String? token = await _authStorage.getAccessToken();
-      final response = await http.get(
-        Uri.parse('${Environment.baseUrl}users/$userId'),
-        headers: {
-          'Authorization': 'Bearer $token',
-          'Content-Type': 'application/json',
-        },
-      );
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        return data['email_verified'] as bool? ?? false;
-      }
-    } catch (e) {
-      print('Error checking email verification: $e');
+    final String? userId = await _authStorage.getUserId();
+    if (userId == null) return false;
+    final String? token = await _authStorage.getAccessToken();
+    final response = await http.get(
+      Uri.parse('${Environment.baseUrl}users/$userId'),
+      headers: {
+        'Authorization': 'Bearer $token',
+        'Content-Type': 'application/json',
+      },
+    );
+    if (response.statusCode == 200) {
+      final data = json.decode(response.body);
+      return data['email_verified'] as bool? ?? false;
     }
     return false;
   }
@@ -156,35 +151,31 @@ class _FollowersPageState extends State<FollowersPage>
 
   Future<void> _loadStreaksForUsers(List<int> userIds) async {
     if (userIds.isEmpty) return;
-    try {
-      final String? token = await _authStorage.getAccessToken();
-      final results = await Future.wait(
-        userIds.map((id) async {
-          try {
-            final response = await http.get(
-              Uri.parse('${Environment.baseUrl}users/$id/streak'),
-              headers: {
-                'Authorization': 'Bearer $token',
-                'Content-Type': 'application/json',
-              },
-            );
-            if (response.statusCode == 200) {
-              final data = json.decode(response.body);
-              if (data['exists'] != false) {
-                return MapEntry(id, (data['streak_count'] as int? ?? 0));
-              }
+    final String? token = await _authStorage.getAccessToken();
+    final results = await Future.wait(
+      userIds.map((id) async {
+        try {
+          final response = await http.get(
+            Uri.parse('${Environment.baseUrl}users/$id/streak'),
+            headers: {
+              'Authorization': 'Bearer $token',
+              'Content-Type': 'application/json',
+            },
+          );
+          if (response.statusCode == 200) {
+            final data = json.decode(response.body);
+            if (data['exists'] != false) {
+              return MapEntry(id, (data['streak_count'] as int? ?? 0));
             }
-          } catch (_) {}
-          return MapEntry(id, 0);
-        }),
-      );
-      if (mounted) {
-        setState(() {
-          _userStreaks = Map.fromEntries(results);
-        });
-      }
-    } catch (e) {
-      print('Error loading user streaks: $e');
+          }
+        } catch (_) {}
+        return MapEntry(id, 0);
+      }),
+    );
+    if (mounted) {
+      setState(() {
+        _userStreaks = Map.fromEntries(results);
+      });
     }
   }
 
@@ -251,19 +242,15 @@ class _FollowersPageState extends State<FollowersPage>
   }
 
   Future<void> _loadStats() async {
-    setState(() => _isLoadingStats = true);
     try {
       final stats = await _followersService.getFollowStats();
       if (mounted) {
         setState(() {
           _stats = stats;
-          _isLoadingStats = false;
         });
       }
     } catch (e) {
-      if (mounted) {
-        setState(() => _isLoadingStats = false);
-      }
+      if (mounted) {}
     }
   }
 
@@ -303,10 +290,22 @@ class _FollowersPageState extends State<FollowersPage>
     bool isPrivate,
   ) async {
     try {
-      if (!await _isEmailVerified()) {
+      final bool verified;
+      try {
+        verified = await _isEmailVerified();
+      } catch (e) {
+        _showSnackBar(
+          'Could not verify account status. Please try again.',
+          isError: true,
+        );
+        return;
+      }
+
+      if (!verified) {
         _showVerificationRequiredDialog();
         return;
       }
+
       final result = await _followersService.followUser(userId);
       final status = result['status'] as String?;
 
@@ -331,10 +330,22 @@ class _FollowersPageState extends State<FollowersPage>
 
   Future<void> _followBackUser(int userId, String displayName) async {
     try {
-      if (!await _isEmailVerified()) {
+      final bool verified;
+      try {
+        verified = await _isEmailVerified();
+      } catch (e) {
+        _showSnackBar(
+          'Could not verify account status. Please try again.',
+          isError: true,
+        );
+        return;
+      }
+
+      if (!verified) {
         _showVerificationRequiredDialog();
         return;
       }
+
       final result = await _followersService.followUser(userId);
       final status = result['status'] as String?;
 
