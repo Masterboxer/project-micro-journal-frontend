@@ -29,12 +29,11 @@ class FirstPostInvitePopup extends StatelessWidget {
     final snippet =
         postText.length > 120 ? '${postText.substring(0, 117)}...' : postText;
 
-    // No indentation inside the string literal — each line must start at col 0
-    return '$userName shared something on Micro Journal:\n\n'
+    return '$userName shared something on Reflecto:\n\n'
         '"$snippet"\n\n'
-        "It's a small app for staying close with the people who matter — "
-        'one post a day, just between you and a few friends. No feed, no noise.\n\n'
-        'Join my circle → [your-app-link]';
+        "It's a lightweight app for just staying close with the people who matter,"
+        ' one post a day, just between you and a few friends. It is NOT social media.\n\n'
+        'Join me on Reflecto - https://reflecto.co.in/';
   }
 
   @override
@@ -58,7 +57,6 @@ class FirstPostInvitePopup extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Handle bar
           Center(
             child: Container(
               width: 36,
@@ -88,7 +86,6 @@ class FirstPostInvitePopup extends StatelessWidget {
 
           const SizedBox(height: 24),
 
-          // Post preview
           Container(
             width: double.infinity,
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
@@ -109,7 +106,7 @@ class FirstPostInvitePopup extends StatelessWidget {
           const SizedBox(height: 20),
 
           Text(
-            'Micro Journal works best when the people you care about are in your circle. There\'s room for up to 10 — no more.',
+            'Reflecto works best when the people you care about are in your circle. But there is room for up to only 10, this helps to remove outside noise and focus only on people who matter.',
             style: theme.textTheme.bodyMedium?.copyWith(
               color: theme.colorScheme.onSurfaceVariant,
               height: 1.55,
@@ -118,7 +115,6 @@ class FirstPostInvitePopup extends StatelessWidget {
 
           const SizedBox(height: 28),
 
-          // Primary CTA
           SizedBox(
             width: double.infinity,
             child: FilledButton.icon(
@@ -126,7 +122,7 @@ class FirstPostInvitePopup extends StatelessWidget {
                 Navigator.pop(context);
                 Share.share(
                   _buildShareText(),
-                  subject: 'Join my Micro Journal circle',
+                  subject: 'Join my Micro Journal Circle',
                 );
               },
               icon: const Icon(Icons.person_add_outlined, size: 20),

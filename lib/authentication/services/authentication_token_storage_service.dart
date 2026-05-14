@@ -8,21 +8,17 @@ class AuthenticationTokenStorageService {
     String accessToken,
     String refreshToken,
     String userId, {
-    String? email,
-    String? displayName,
+    required String email,
+    required String displayName,
   }) async {
     try {
       await _storage.write(key: 'access_token', value: accessToken);
       await _storage.write(key: 'refresh_token', value: refreshToken);
       await _storage.write(key: 'user_id', value: userId);
 
-      if (email != null) {
-        await _storage.write(key: 'email', value: email);
-      }
+      await _storage.write(key: 'email', value: email);
 
-      if (displayName != null) {
-        await _storage.write(key: 'display_name', value: displayName);
-      }
+      await _storage.write(key: 'display_name', value: displayName);
     } catch (err) {
       final prefs = await SharedPreferences.getInstance();
 
@@ -30,13 +26,9 @@ class AuthenticationTokenStorageService {
       await prefs.setString('refresh_token', refreshToken);
       await prefs.setString('user_id', userId);
 
-      if (email != null) {
-        await prefs.setString('email', email);
-      }
+      await prefs.setString('email', email);
 
-      if (displayName != null) {
-        await prefs.setString('display_name', displayName);
-      }
+      await prefs.setString('display_name', displayName);
     }
   }
 

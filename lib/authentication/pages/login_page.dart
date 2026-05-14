@@ -86,6 +86,7 @@ class LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
         loginResponse.refreshToken,
         loginResponse.userId,
         email: loginResponse.email,
+        displayName: loginResponse.displayName,
       );
 
       setState(() {
@@ -141,6 +142,7 @@ class LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
           response['refresh_token'],
           response['user_id'],
           email: response['email'],
+          displayName: response['display_name'],
         );
         if (mounted) {
           Navigator.pushReplacement(
