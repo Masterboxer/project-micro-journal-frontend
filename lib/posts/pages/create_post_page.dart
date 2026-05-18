@@ -28,6 +28,7 @@ class _CreatePostPageState extends State<CreatePostPage> {
   @override
   void initState() {
     super.initState();
+    _postController.addListener(() => setState(() {}));
     _loadTemplates();
   }
 
@@ -489,6 +490,7 @@ class _CreatePostPageState extends State<CreatePostPage> {
           controller: _postController,
           maxLength: 500,
           maxLines: 5,
+          textCapitalization: TextCapitalization.sentences,
           enabled: !_isSubmitting && _selectedTemplate != null,
           decoration: InputDecoration(
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
@@ -501,21 +503,6 @@ class _CreatePostPageState extends State<CreatePostPage> {
           ),
         ),
         const SizedBox(height: 12),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.end,
-          children: [
-            Text(
-              '${_postController.text.length}/500',
-              style: theme.textTheme.bodySmall?.copyWith(
-                color:
-                    _postController.text.length > 260
-                        ? theme.colorScheme.error
-                        : theme.colorScheme.onSurfaceVariant,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ],
-        ),
       ],
     );
   }
