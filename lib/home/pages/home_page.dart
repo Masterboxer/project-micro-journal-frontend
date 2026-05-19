@@ -1298,6 +1298,11 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
     'sad': '😢',
     'angry': '😠',
     'surprised': '🤯',
+    'fire': '🔥',
+    'clap': '👏',
+    'thinking': '🤔',
+    'party': '🥳',
+    'cool': '😎',
   };
 
   Future<void> _showReactionPicker(
