@@ -14,6 +14,7 @@ import 'package:project_micro_journal/templates/template_service.dart';
 import 'package:project_micro_journal/utils/app_navigator.dart';
 import 'package:project_micro_journal/utils/micro_journaling_habit_page.dart';
 import 'package:project_micro_journal/utils/notifications_permissions_page.dart';
+import 'package:project_micro_journal/utils/rate_app_popup.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class HomePage extends StatefulWidget {
@@ -729,7 +730,6 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
     final createdPostId = result['id'];
     final shouldReloadStreak = result['should_reload_streak'] ?? false;
-    // Grab post text before any async gaps
     final newPostText = result['text'] as String? ?? '';
 
     setState(() => _isLoading = true);
@@ -764,7 +764,6 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
             ),
           );
 
-          // ↓ Check if this is their first-ever post and show the invite popup
           final prefs = await SharedPreferences.getInstance();
           final hasSeenInvitePopup =
               prefs.getBool('has_seen_invite_popup') ?? false;
@@ -772,7 +771,6 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
           if (!hasSeenInvitePopup && mounted) {
             await prefs.setBool('has_seen_invite_popup', true);
 
-            // Small delay so the snackbar settles first
             await Future.delayed(const Duration(milliseconds: 600));
 
             if (mounted) {
@@ -786,7 +784,7 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
               );
             }
           }
-          // ↑ end invite popup block
+          await RateAppPopup.onPostCreated(context);
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
