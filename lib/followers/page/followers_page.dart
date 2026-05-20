@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 import 'package:project_micro_journal/authentication/services/authentication_token_storage_service.dart';
 import 'package:project_micro_journal/environment/development.dart';
 import 'package:project_micro_journal/followers/service/followers_service.dart';
+import 'package:project_micro_journal/profile/pages/profile_page.dart';
 import '../models/follower.dart';
 import '../models/user_search_result.dart';
 import '../models/follow_stats.dart';
@@ -91,6 +92,17 @@ class _FollowersPageState extends State<FollowersPage>
           ..._pendingRequests.map((f) => f.id),
         }.toList();
     await _loadStreaksForUsers(allUserIds);
+  }
+
+  void _navigateToUserProfile(int userId, String displayName) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder:
+            (context) =>
+                ProfilePage(viewUserId: userId, viewDisplayName: displayName),
+      ),
+    );
   }
 
   Future<void> _loadFollowers() async {
@@ -226,6 +238,7 @@ class _FollowersPageState extends State<FollowersPage>
     return Card(
       margin: const EdgeInsets.only(bottom: 8),
       child: ListTile(
+        onTap: () => _navigateToUserProfile(user.id, user.displayName),
         leading: CircleAvatar(
           backgroundColor: theme.colorScheme.primaryContainer,
           child: Text(
@@ -815,6 +828,7 @@ class _FollowersPageState extends State<FollowersPage>
         return Card(
           margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
           child: ListTile(
+            onTap: () => _navigateToUserProfile(user.id, user.displayName),
             contentPadding: const EdgeInsets.symmetric(
               horizontal: 12,
               vertical: 4,
@@ -965,6 +979,11 @@ class _FollowersPageState extends State<FollowersPage>
                         horizontal: 12,
                         vertical: 8,
                       ),
+                      onTap:
+                          () => _navigateToUserProfile(
+                            request.id,
+                            request.displayName,
+                          ),
                       leading: CircleAvatar(
                         backgroundColor: theme.colorScheme.primaryContainer,
                         child: Text(
@@ -1057,6 +1076,11 @@ class _FollowersPageState extends State<FollowersPage>
                   return Card(
                     margin: const EdgeInsets.only(bottom: 12),
                     child: ListTile(
+                      onTap:
+                          () => _navigateToUserProfile(
+                            follower.id,
+                            follower.displayName,
+                          ),
                       leading: CircleAvatar(
                         backgroundColor: theme.colorScheme.primaryContainer,
                         child: Text(
@@ -1149,6 +1173,9 @@ class _FollowersPageState extends State<FollowersPage>
                   return Card(
                     margin: const EdgeInsets.only(bottom: 12),
                     child: ListTile(
+                      onTap:
+                          () =>
+                              _navigateToUserProfile(user.id, user.displayName),
                       leading: CircleAvatar(
                         backgroundColor: theme.colorScheme.secondaryContainer,
                         child: Text(

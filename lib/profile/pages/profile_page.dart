@@ -7,7 +7,12 @@ import 'package:project_micro_journal/environment/development.dart';
 import 'package:project_micro_journal/templates/template_service.dart';
 
 class ProfilePage extends StatefulWidget {
-  const ProfilePage({super.key});
+  final int? viewUserId;
+  final String? viewDisplayName;
+
+  const ProfilePage({super.key, this.viewUserId, this.viewDisplayName});
+
+  bool get isViewingOther => viewUserId != null;
 
   @override
   State<ProfilePage> createState() => _ProfilePageState();
@@ -36,34 +41,37 @@ class _ProfilePageState extends State<ProfilePage> {
     });
 
     try {
-      final String? userId = await _authStorage.getUserId();
-      if (userId == null) {
-        setState(() => _error = 'User not authenticated');
-        return;
+      String? userId;
+      if (widget.isViewingOther) {
+        userId = widget.viewUserId.toString();
+      } else {
+        userId = await _authStorage.getUserId();
+        if (userId == null) {
+          setState(() => _error = 'User not authenticated');
+          return;
+        }
+        await _templateService.fetchTemplatesFromBackend();
       }
-
-      await _templateService.fetchTemplatesFromBackend();
 
       await Future.wait([_loadUserInfo(userId), _loadUserPosts(userId)]);
     } catch (e) {
       setState(() => _error = e.toString());
     } finally {
-      if (mounted) {
-        setState(() => _isLoading = false);
-      }
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
   Future<void> _loadUserInfo(String userId) async {
+    final String? token = await _authStorage.getAccessToken();
     final response = await http.get(
       Uri.parse('${Environment.baseUrl}users/$userId'),
-      headers: {'Content-Type': 'application/json'},
+      headers: {
+        'Authorization': 'Bearer $token',
+        'Content-Type': 'application/json',
+      },
     );
-
     if (response.statusCode == 200) {
-      setState(() {
-        _userInfo = json.decode(response.body);
-      });
+      setState(() => _userInfo = json.decode(response.body));
     } else {
       throw Exception('Failed to load user info');
     }
@@ -271,48 +279,51 @@ class _ProfilePageState extends State<ProfilePage> {
               children: [
                 _buildProfileHeader(theme),
                 _buildStatsSection(theme),
-                const Divider(height: 32),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: Row(
-                    children: [
-                      Text(
-                        'Your Posts',
-                        style: theme.textTheme.titleLarge?.copyWith(
-                          fontWeight: FontWeight.bold,
+                if (!widget.isViewingOther) ...[
+                  const Divider(height: 32),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: Row(
+                      children: [
+                        Text(
+                          'Your Posts',
+                          style: theme.textTheme.titleLarge?.copyWith(
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
-                      ),
-                      const Spacer(),
-                      Text(
-                        '${_userPosts.length} ${_userPosts.length == 1 ? 'post' : 'posts'}',
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant,
+                        const Spacer(),
+                        Text(
+                          '${_userPosts.length} ${_userPosts.length == 1 ? 'post' : 'posts'}',
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
-                ),
-                const SizedBox(height: 16),
+                  const SizedBox(height: 16),
+                ],
               ],
             ),
           ),
-          _userPosts.isEmpty
-              ? SliverFillRemaining(
-                hasScrollBody: false,
-                child: _buildEmptyState(theme),
-              )
-              : SliverPadding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                sliver: SliverList(
-                  delegate: SliverChildBuilderDelegate(
-                    (context, index) => Padding(
-                      padding: const EdgeInsets.only(bottom: 16),
-                      child: _buildPostCard(theme, _userPosts[index]),
+          if (!widget.isViewingOther)
+            _userPosts.isEmpty
+                ? SliverFillRemaining(
+                  hasScrollBody: false,
+                  child: _buildEmptyState(theme),
+                )
+                : SliverPadding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  sliver: SliverList(
+                    delegate: SliverChildBuilderDelegate(
+                      (context, index) => Padding(
+                        padding: const EdgeInsets.only(bottom: 16),
+                        child: _buildPostCard(theme, _userPosts[index]),
+                      ),
+                      childCount: _userPosts.length,
                     ),
-                    childCount: _userPosts.length,
                   ),
                 ),
-              ),
         ],
       ),
     );
@@ -398,18 +409,41 @@ class _ProfilePageState extends State<ProfilePage> {
               overflow: TextOverflow.ellipsis,
             ),
           ),
-          const SizedBox(height: 8),
-          TextButton.icon(
-            onPressed: _showEditBioDialog,
-            icon: const Icon(Icons.edit_outlined, size: 15),
-            label: Text(hasBio ? 'Edit bio' : 'Add bio'),
-            style: TextButton.styleFrom(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              textStyle: const TextStyle(fontSize: 13),
-              minimumSize: Size.zero,
-              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          if (!widget.isViewingOther) ...[
+            const SizedBox(height: 8),
+            TextButton.icon(
+              onPressed: _showEditBioDialog,
+              icon: const Icon(Icons.edit_outlined, size: 15),
+              label: Text(hasBio ? 'Edit bio' : 'Add bio'),
+              style: TextButton.styleFrom(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 6,
+                ),
+                textStyle: const TextStyle(fontSize: 13),
+                minimumSize: Size.zero,
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
             ),
-          ),
+          ],
+          if (!widget.isViewingOther) ...[
+            const SizedBox(height: 12),
+            OutlinedButton.icon(
+              onPressed: _logout,
+              icon: const Icon(Icons.logout, size: 18),
+              label: const Text('Logout'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: theme.colorScheme.error,
+                side: BorderSide(
+                  color: theme.colorScheme.error.withOpacity(0.6),
+                ),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 10,
+                ),
+              ),
+            ),
+          ],
         ],
       ),
     );
