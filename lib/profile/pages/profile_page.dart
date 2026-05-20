@@ -319,8 +319,12 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   Widget _buildProfileHeader(ThemeData theme) {
+    final hasBio =
+        _userInfo?['bio'] != null &&
+        _userInfo!['bio'].toString().trim().isNotEmpty;
+
     return Container(
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.fromLTRB(24, 32, 24, 16),
       child: Column(
         children: [
           CircleAvatar(
@@ -335,27 +339,28 @@ class _ProfilePageState extends State<ProfilePage> {
               ),
             ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 14),
           Text(
             _userInfo?['display_name'] ?? 'Unknown',
             style: theme.textTheme.headlineSmall?.copyWith(
-              fontWeight: FontWeight.bold,
+              fontWeight: FontWeight.w800,
+              letterSpacing: -0.3,
             ),
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: 2),
           Text(
             '@${_userInfo?['username'] ?? 'unknown'}',
-            style: theme.textTheme.bodyLarge?.copyWith(
+            style: theme.textTheme.bodyMedium?.copyWith(
               color: theme.colorScheme.onSurfaceVariant,
             ),
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: 6),
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Icon(
-                Icons.calendar_today,
-                size: 16,
+                Icons.calendar_today_outlined,
+                size: 13,
                 color: theme.colorScheme.onSurfaceVariant,
               ),
               const SizedBox(width: 4),
@@ -367,69 +372,42 @@ class _ProfilePageState extends State<ProfilePage> {
               ),
             ],
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 20),
           Container(
             width: double.infinity,
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
             decoration: BoxDecoration(
               color: theme.colorScheme.surfaceContainerHighest.withOpacity(0.4),
               borderRadius: BorderRadius.circular(16),
             ),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: Text(
-                    (_userInfo?['bio'] != null &&
-                            _userInfo!['bio'].toString().trim().isNotEmpty)
-                        ? _userInfo!['bio']
-                        : 'Tell people a little about yourself...',
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color:
-                          (_userInfo?['bio'] != null &&
-                                  _userInfo!['bio']
-                                      .toString()
-                                      .trim()
-                                      .isNotEmpty)
-                              ? theme.colorScheme.onSurface
-                              : theme.colorScheme.onSurfaceVariant,
-                      fontStyle:
-                          (_userInfo?['bio'] != null &&
-                                  _userInfo!['bio']
-                                      .toString()
-                                      .trim()
-                                      .isNotEmpty)
-                              ? FontStyle.normal
-                              : FontStyle.italic,
-                      height: 1.4,
-                    ),
-                    maxLines: 6,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                InkWell(
-                  borderRadius: BorderRadius.circular(20),
-                  onTap: _showEditBioDialog,
-                  child: Padding(
-                    padding: const EdgeInsets.all(4),
-                    child: Icon(
-                      Icons.edit_outlined,
-                      size: 20,
-                      color: theme.colorScheme.primary,
-                    ),
-                  ),
-                ),
-              ],
+            child: Text(
+              hasBio
+                  ? _userInfo!['bio']
+                  : 'Tell people a little about yourself...',
+              textAlign: TextAlign.center,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color:
+                    hasBio
+                        ? theme.colorScheme.onSurface
+                        : theme.colorScheme.onSurfaceVariant,
+                fontStyle: hasBio ? FontStyle.normal : FontStyle.italic,
+                fontWeight: hasBio ? FontWeight.w600 : FontWeight.normal,
+                height: 1.5,
+              ),
+              maxLines: 6,
+              overflow: TextOverflow.ellipsis,
             ),
           ),
-          const SizedBox(height: 24),
-          FilledButton.icon(
-            onPressed: _logout,
-            icon: const Icon(Icons.logout),
-            label: const Text('Logout'),
-            style: FilledButton.styleFrom(
-              backgroundColor: theme.colorScheme.error,
+          const SizedBox(height: 8),
+          TextButton.icon(
+            onPressed: _showEditBioDialog,
+            icon: const Icon(Icons.edit_outlined, size: 15),
+            label: Text(hasBio ? 'Edit bio' : 'Add bio'),
+            style: TextButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              textStyle: const TextStyle(fontSize: 13),
+              minimumSize: Size.zero,
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
             ),
           ),
         ],
@@ -473,7 +451,7 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   Future<void> _showEditBioDialog() async {
-    final theme = Theme.of(context);
+    Theme.of(context);
 
     final controller = TextEditingController(text: _userInfo?['bio'] ?? '');
 
