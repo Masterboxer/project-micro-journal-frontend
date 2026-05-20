@@ -270,7 +270,7 @@ class _ProfilePageState extends State<ProfilePage> {
       );
     }
 
-    return RefreshIndicator(
+    final content = RefreshIndicator(
       onRefresh: _loadProfileData,
       child: CustomScrollView(
         slivers: [
@@ -327,6 +327,15 @@ class _ProfilePageState extends State<ProfilePage> {
         ],
       ),
     );
+
+    if (widget.isViewingOther) {
+      return Scaffold(
+        appBar: AppBar(title: Text(widget.viewDisplayName ?? 'Profile')),
+        body: content,
+      );
+    }
+
+    return content;
   }
 
   Widget _buildProfileHeader(ThemeData theme) {
@@ -391,23 +400,50 @@ class _ProfilePageState extends State<ProfilePage> {
               color: theme.colorScheme.surfaceContainerHighest.withOpacity(0.4),
               borderRadius: BorderRadius.circular(16),
             ),
-            child: Text(
-              hasBio
-                  ? _userInfo!['bio']
-                  : 'Tell people a little about yourself...',
-              textAlign: TextAlign.center,
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color:
-                    hasBio
-                        ? theme.colorScheme.onSurface
-                        : theme.colorScheme.onSurfaceVariant,
-                fontStyle: hasBio ? FontStyle.normal : FontStyle.italic,
-                fontWeight: hasBio ? FontWeight.w600 : FontWeight.normal,
-                height: 1.5,
-              ),
-              maxLines: 6,
-              overflow: TextOverflow.ellipsis,
-            ),
+            child:
+                hasBio
+                    ? Text(
+                      _userInfo!['bio'],
+                      textAlign: TextAlign.center,
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: theme.colorScheme.onSurface,
+                        fontWeight: FontWeight.w600,
+                        height: 1.5,
+                      ),
+                      maxLines: 6,
+                      overflow: TextOverflow.ellipsis,
+                    )
+                    : RichText(
+                      textAlign: TextAlign.center,
+                      maxLines: 6,
+                      overflow: TextOverflow.ellipsis,
+                      text: TextSpan(
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                          fontStyle: FontStyle.italic,
+                          height: 1.5,
+                        ),
+                        children: [
+                          if (widget.isViewingOther) ...[
+                            const TextSpan(text: 'Ask '),
+                            TextSpan(
+                              text:
+                                  '${_userInfo?['username'] ?? widget.viewDisplayName}',
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const TextSpan(
+                              text: ' to add something to their bio',
+                            ),
+                          ] else ...[
+                            const TextSpan(
+                              text: 'Tell people a little about yourself...',
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
           ),
           if (!widget.isViewingOther) ...[
             const SizedBox(height: 8),
