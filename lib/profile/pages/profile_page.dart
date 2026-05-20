@@ -349,7 +349,7 @@ class _ProfilePageState extends State<ProfilePage> {
               color: theme.colorScheme.onSurfaceVariant,
             ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 4),
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
@@ -367,23 +367,161 @@ class _ProfilePageState extends State<ProfilePage> {
               ),
             ],
           ),
-          const SizedBox(height: 24),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              FilledButton.icon(
-                onPressed: _logout,
-                icon: const Icon(Icons.logout),
-                label: const Text('Logout'),
-                style: FilledButton.styleFrom(
-                  backgroundColor: theme.colorScheme.error,
+          const SizedBox(height: 16),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: theme.colorScheme.surfaceContainerHighest.withOpacity(0.4),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Text(
+                    (_userInfo?['bio'] != null &&
+                            _userInfo!['bio'].toString().trim().isNotEmpty)
+                        ? _userInfo!['bio']
+                        : 'Tell people a little about yourself...',
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color:
+                          (_userInfo?['bio'] != null &&
+                                  _userInfo!['bio']
+                                      .toString()
+                                      .trim()
+                                      .isNotEmpty)
+                              ? theme.colorScheme.onSurface
+                              : theme.colorScheme.onSurfaceVariant,
+                      fontStyle:
+                          (_userInfo?['bio'] != null &&
+                                  _userInfo!['bio']
+                                      .toString()
+                                      .trim()
+                                      .isNotEmpty)
+                              ? FontStyle.normal
+                              : FontStyle.italic,
+                      height: 1.4,
+                    ),
+                    maxLines: 6,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
-              ),
-            ],
+                const SizedBox(width: 8),
+                InkWell(
+                  borderRadius: BorderRadius.circular(20),
+                  onTap: _showEditBioDialog,
+                  child: Padding(
+                    padding: const EdgeInsets.all(4),
+                    child: Icon(
+                      Icons.edit_outlined,
+                      size: 20,
+                      color: theme.colorScheme.primary,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 24),
+          FilledButton.icon(
+            onPressed: _logout,
+            icon: const Icon(Icons.logout),
+            label: const Text('Logout'),
+            style: FilledButton.styleFrom(
+              backgroundColor: theme.colorScheme.error,
+            ),
           ),
         ],
       ),
     );
+  }
+
+  Future<void> _updateBio(String bio) async {
+    try {
+      final userId = await _authStorage.getUserId();
+
+      final response = await http.put(
+        Uri.parse('${Environment.baseUrl}users/$userId/bio'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({'bio': bio}),
+      );
+
+      if (response.statusCode == 200) {
+        setState(() {
+          _userInfo?['bio'] = bio;
+        });
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Bio updated successfully')),
+          );
+        }
+      } else {
+        throw Exception('Failed to update bio');
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error updating bio: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _showEditBioDialog() async {
+    final theme = Theme.of(context);
+
+    final controller = TextEditingController(text: _userInfo?['bio'] ?? '');
+
+    final result = await showDialog<String>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Edit Bio'),
+          content: StatefulBuilder(
+            builder: (context, setModalState) {
+              return Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextField(
+                    controller: controller,
+                    maxLength: 280,
+                    maxLines: 5,
+                    decoration: const InputDecoration(
+                      hintText: 'Write something about yourself...',
+                      border: OutlineInputBorder(),
+                    ),
+                    onChanged: (_) {
+                      setModalState(() {});
+                    },
+                  ),
+                ],
+              );
+            },
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () {
+                Navigator.pop(context, controller.text.trim());
+              },
+              child: const Text('Save'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (result != null) {
+      await _updateBio(result);
+    }
   }
 
   Widget _buildStatsSection(ThemeData theme) {
