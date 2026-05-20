@@ -21,6 +21,7 @@ class _FollowersPageState extends State<FollowersPage>
     with SingleTickerProviderStateMixin, WidgetsBindingObserver {
   final FollowersService _followersService = FollowersService();
   final TextEditingController _searchController = TextEditingController();
+  final FocusNode _searchFocusNode = FocusNode();
   final AuthenticationTokenStorageService _authStorage =
       AuthenticationTokenStorageService();
   Map<int, int> _userStreaks = {};
@@ -53,6 +54,7 @@ class _FollowersPageState extends State<FollowersPage>
     _tabController.removeListener(_onTabChanged);
     _tabController.dispose();
     _searchController.dispose();
+    _searchFocusNode.dispose();
     super.dispose();
   }
 
@@ -217,6 +219,48 @@ class _FollowersPageState extends State<FollowersPage>
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildSuggestedUserTile(Follower user, ThemeData theme) {
+    return Card(
+      margin: const EdgeInsets.only(bottom: 8),
+      child: ListTile(
+        leading: CircleAvatar(
+          backgroundColor: theme.colorScheme.primaryContainer,
+          child: Text(
+            user.displayName.isNotEmpty
+                ? user.displayName[0].toUpperCase()
+                : '?',
+            style: TextStyle(
+              color: theme.colorScheme.onPrimaryContainer,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ),
+        title: Row(
+          children: [
+            Flexible(
+              child: Text(
+                user.displayName,
+                style: const TextStyle(fontWeight: FontWeight.bold),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            const SizedBox(width: 8),
+            _buildStreakBadge(user.id),
+          ],
+        ),
+        subtitle: Text('@${user.username}', overflow: TextOverflow.ellipsis),
+        trailing: FilledButton.icon(
+          onPressed: () => _followBackUser(user.id, user.displayName),
+          style: FilledButton.styleFrom(
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+          ),
+          icon: const Icon(Icons.person_add, size: 16),
+          label: const Text('Follow Back', style: TextStyle(fontSize: 12)),
+        ),
+      ),
     );
   }
 
@@ -615,6 +659,7 @@ class _FollowersPageState extends State<FollowersPage>
                 padding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
                 child: TextField(
                   controller: _searchController,
+                  focusNode: _searchFocusNode,
                   decoration: InputDecoration(
                     hintText: 'Search users...',
                     prefixIcon: const Icon(Icons.search),
@@ -1088,20 +1133,14 @@ class _FollowersPageState extends State<FollowersPage>
   }
 
   Widget _buildFollowingList(ThemeData theme) {
-    if (_isLoadingFollowing) {
+    if (_isLoadingFollowing)
       return const Center(child: CircularProgressIndicator());
-    }
 
     return RefreshIndicator(
       onRefresh: _loadAllData,
       child:
           _following.isEmpty
-              ? _buildEmptyState(
-                theme,
-                Icons.person_add_outlined,
-                'Not following anyone',
-                'Search for users to follow',
-              )
+              ? _buildFollowingEmptyWithCTA(theme)
               : ListView.builder(
                 padding: const EdgeInsets.all(16),
                 itemCount: _following.length,
@@ -1150,6 +1189,72 @@ class _FollowersPageState extends State<FollowersPage>
                   );
                 },
               ),
+    );
+  }
+
+  Widget _buildFollowingEmptyWithCTA(ThemeData theme) {
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        // CTA card
+        Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: theme.colorScheme.primaryContainer,
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Column(
+            children: [
+              Icon(
+                Icons.group_outlined,
+                size: 48,
+                color: theme.colorScheme.onPrimaryContainer,
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'Find people to follow',
+                style: theme.textTheme.titleMedium?.copyWith(
+                  color: theme.colorScheme.onPrimaryContainer,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                'Search for friends by name or @username to follow them and see their journals and streaks.',
+                textAlign: TextAlign.center,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onPrimaryContainer,
+                ),
+              ),
+              const SizedBox(height: 16),
+              FilledButton.icon(
+                onPressed: () {
+                  // Focus the search bar
+                  _searchFocusNode.requestFocus();
+                },
+                icon: const Icon(Icons.search, size: 18),
+                label: const Text('Search for people'),
+              ),
+            ],
+          ),
+        ),
+        // Suggested users section (from _followers who you haven't followed back)
+        if (_followers.isNotEmpty) ...[
+          const SizedBox(height: 24),
+          Text(
+            'Suggested — follows you',
+            style: theme.textTheme.labelSmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+              letterSpacing: 0.5,
+            ),
+          ),
+          const SizedBox(height: 8),
+          ..._followers
+              .where((f) => !_isFollowingUser(f.id))
+              .take(5)
+              .map((f) => _buildSuggestedUserTile(f, theme)),
+        ],
+      ],
     );
   }
 
