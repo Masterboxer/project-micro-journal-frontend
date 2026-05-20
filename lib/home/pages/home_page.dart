@@ -9,6 +9,7 @@ import 'package:project_micro_journal/environment/development.dart';
 import 'package:project_micro_journal/home/models/streak.dart';
 import 'package:project_micro_journal/posts/pages/create_post_page.dart';
 import 'package:project_micro_journal/posts/pages/first_post_invite_popup.dart';
+import 'package:project_micro_journal/profile/pages/profile_page.dart';
 import 'package:project_micro_journal/templates/template_model.dart';
 import 'package:project_micro_journal/templates/template_service.dart';
 import 'package:project_micro_journal/utils/app_navigator.dart';
@@ -73,6 +74,17 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
     }
 
     _startCountdown(remaining);
+  }
+
+  void _navigateToUserProfile(int userId, String displayName) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder:
+            (context) =>
+                ProfilePage(viewUserId: userId, viewDisplayName: displayName),
+      ),
+    );
   }
 
   void _startCountdown(Duration remaining) {
@@ -1088,40 +1100,47 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              children: [
-                CircleAvatar(
-                  radius: 20,
-                  backgroundColor: theme.colorScheme.primaryContainer,
-                  child: Text(
-                    userName.isNotEmpty ? userName[0].toUpperCase() : '?',
-                    style: TextStyle(
-                      color: theme.colorScheme.onPrimaryContainer,
-                      fontWeight: FontWeight.bold,
+            GestureDetector(
+              onTap:
+                  () => _navigateToUserProfile(
+                    post['user_id'] as int,
+                    post['userName'] as String,
+                  ),
+              child: Row(
+                children: [
+                  CircleAvatar(
+                    radius: 20,
+                    backgroundColor: theme.colorScheme.primaryContainer,
+                    child: Text(
+                      userName.isNotEmpty ? userName[0].toUpperCase() : '?',
+                      style: TextStyle(
+                        color: theme.colorScheme.onPrimaryContainer,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        userName,
-                        style: theme.textTheme.titleSmall?.copyWith(
-                          fontWeight: FontWeight.bold,
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          userName,
+                          style: theme.textTheme.titleSmall?.copyWith(
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
-                      ),
-                      Text(
-                        _formatExpirationTime(journalDate),
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant,
+                        Text(
+                          _formatExpirationTime(journalDate),
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
             const SizedBox(height: 12),
             Container(
