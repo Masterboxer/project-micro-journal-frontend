@@ -229,6 +229,7 @@ class SignupPageState extends State<SignupPage> with TickerProviderStateMixin {
                           // Display Name field
                           TextFormField(
                             controller: _displayNameController,
+                            textCapitalization: TextCapitalization.words,
                             decoration: InputDecoration(
                               labelText: 'Display Name',
                               prefixIcon: Icon(Icons.person_outline),

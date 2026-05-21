@@ -428,7 +428,7 @@ class _ProfilePageState extends State<ProfilePage> {
                             const TextSpan(text: 'Ask '),
                             TextSpan(
                               text:
-                                  '${_userInfo?['username'] ?? widget.viewDisplayName}',
+                                  '${_userInfo?['display_name'] ?? widget.viewDisplayName}',
                               style: const TextStyle(
                                 fontWeight: FontWeight.bold,
                               ),

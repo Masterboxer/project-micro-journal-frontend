@@ -191,6 +191,7 @@ class GoogleSignUpPageState extends State<GoogleSignUpPage> {
                       // Display Name (pre-filled from Google)
                       TextFormField(
                         controller: _displayNameController,
+                        textCapitalization: TextCapitalization.words,
                         decoration: InputDecoration(
                           labelText: 'Display Name',
                           prefixIcon: Icon(Icons.person_outline),
