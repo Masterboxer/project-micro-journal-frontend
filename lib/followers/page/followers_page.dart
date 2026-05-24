@@ -46,6 +46,34 @@ class _FollowersPageState extends State<FollowersPage>
   bool _followingOffline = false;
   bool _pendingOffline = false;
 
+  bool _looksLikeNetworkError(dynamic error) {
+    final msg = error.toString().toLowerCase();
+    return msg.contains('socketexception') ||
+        msg.contains('clientexception') ||
+        msg.contains('network is unreachable') ||
+        msg.contains('connection refused') ||
+        msg.contains('failed host lookup') ||
+        msg.contains('handshakeexception') ||
+        msg.contains('os error');
+  }
+
+  String _friendlyError(dynamic error, String action) {
+    if (_looksLikeNetworkError(error)) {
+      return 'No internet connection. Check your Wi-Fi or mobile data.';
+    }
+    return 'Could not $action. Please try again.';
+  }
+
+  void _showSnackBar(String message, {bool isError = false}) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: isError ? Theme.of(context).colorScheme.error : null,
+        duration: Duration(seconds: isError ? 4 : 2),
+      ),
+    );
+  }
+
   @override
   void initState() {
     super.initState();
@@ -100,28 +128,6 @@ class _FollowersPageState extends State<FollowersPage>
     await _loadStreaksForUsers(allUserIds);
   }
 
-  bool _looksLikeNetworkError(dynamic error) {
-    final msg = error.toString().toLowerCase();
-    return msg.contains('socketexception') ||
-        msg.contains('clientexception') ||
-        msg.contains('network is unreachable') ||
-        msg.contains('connection refused') ||
-        msg.contains('failed host lookup') ||
-        msg.contains('handshakeexception') ||
-        msg.contains('os error');
-  }
-
-  void _navigateToUserProfile(int userId, String displayName) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder:
-            (context) =>
-                ProfilePage(viewUserId: userId, viewDisplayName: displayName),
-      ),
-    );
-  }
-
   Future<void> _loadFollowers() async {
     setState(() {
       _isLoadingFollowers = true;
@@ -145,74 +151,6 @@ class _FollowersPageState extends State<FollowersPage>
           _followersOffline = _looksLikeNetworkError(e);
         });
       }
-    }
-  }
-
-  Future<bool> _isEmailVerified() async {
-    final String? userId = await _authStorage.getUserId();
-    if (userId == null) return false;
-    final String? token = await _authStorage.getAccessToken();
-    final response = await http.get(
-      Uri.parse('${Environment.baseUrl}users/$userId'),
-      headers: {
-        'Authorization': 'Bearer $token',
-        'Content-Type': 'application/json',
-      },
-    );
-    if (response.statusCode == 200) {
-      final data = json.decode(response.body);
-      return data['email_verified'] as bool? ?? false;
-    }
-    return false;
-  }
-
-  void _showVerificationRequiredDialog() {
-    showDialog(
-      context: context,
-      builder:
-          (context) => AlertDialog(
-            icon: const Icon(Icons.mark_email_unread_outlined, size: 40),
-            title: const Text('Verify your email'),
-            content: const Text(
-              'You need to verify your email address before you can follow other users. Please check your inbox for the verification link.',
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text('OK'),
-              ),
-            ],
-          ),
-    );
-  }
-
-  Future<void> _loadStreaksForUsers(List<int> userIds) async {
-    if (userIds.isEmpty) return;
-    final String? token = await _authStorage.getAccessToken();
-    final results = await Future.wait(
-      userIds.map((id) async {
-        try {
-          final response = await http.get(
-            Uri.parse('${Environment.baseUrl}users/$id/streak'),
-            headers: {
-              'Authorization': 'Bearer $token',
-              'Content-Type': 'application/json',
-            },
-          );
-          if (response.statusCode == 200) {
-            final data = json.decode(response.body);
-            if (data['exists'] != false) {
-              return MapEntry(id, (data['streak_count'] as int? ?? 0));
-            }
-          }
-        } catch (_) {}
-        return MapEntry(id, 0);
-      }),
-    );
-    if (mounted) {
-      setState(() {
-        _userStreaks = Map.fromEntries(results);
-      });
     }
   }
 
@@ -240,116 +178,6 @@ class _FollowersPageState extends State<FollowersPage>
         });
       }
     }
-  }
-
-  Widget _buildStreakBadge(int userId) {
-    final streak = _userStreaks[userId] ?? 0;
-    if (streak == 0) return const SizedBox.shrink();
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: [
-        const Icon(Icons.local_fire_department, size: 18, color: Colors.orange),
-        const SizedBox(width: 2),
-        Text(
-          '$streak',
-          style: const TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.w600,
-            color: Colors.orange,
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildSuggestedUserTile(Follower user, ThemeData theme) {
-    return Card(
-      margin: const EdgeInsets.only(bottom: 8),
-      child: ListTile(
-        onTap: () => _navigateToUserProfile(user.id, user.displayName),
-        leading: CircleAvatar(
-          backgroundColor: theme.colorScheme.primaryContainer,
-          child: Text(
-            user.displayName.isNotEmpty
-                ? user.displayName[0].toUpperCase()
-                : '?',
-            style: TextStyle(
-              color: theme.colorScheme.onPrimaryContainer,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-        ),
-        title: Row(
-          children: [
-            Flexible(
-              child: Text(
-                user.displayName,
-                style: const TextStyle(fontWeight: FontWeight.bold),
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-            const SizedBox(width: 8),
-            _buildStreakBadge(user.id),
-          ],
-        ),
-        subtitle: Text('@${user.username}', overflow: TextOverflow.ellipsis),
-        trailing: FilledButton.icon(
-          onPressed: () => _followBackUser(user.id, user.displayName),
-          style: FilledButton.styleFrom(
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-          ),
-          icon: const Icon(Icons.person_add, size: 16),
-          label: const Text('Follow Back', style: TextStyle(fontSize: 12)),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildInlineError({
-    required bool isOffline,
-    required VoidCallback onRetry,
-  }) {
-    final theme = Theme.of(context);
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 32),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              isOffline ? Icons.wifi_off_rounded : Icons.error_outline,
-              size: 56,
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
-            const SizedBox(height: 16),
-            Text(
-              isOffline ? 'No internet connection' : 'Something went wrong',
-              style: theme.textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 8),
-            Text(
-              isOffline
-                  ? 'Check your Wi-Fi or mobile data and try again.'
-                  : 'We couldn\'t load this list. Please try again.',
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 24),
-            FilledButton.icon(
-              onPressed: onRetry,
-              icon: const Icon(Icons.refresh),
-              label: const Text('Try Again'),
-            ),
-          ],
-        ),
-      ),
-    );
   }
 
   Future<void> _loadPendingRequests() async {
@@ -383,13 +211,80 @@ class _FollowersPageState extends State<FollowersPage>
     try {
       final stats = await _followersService.getFollowStats();
       if (mounted) {
-        setState(() {
-          _stats = stats;
-        });
+        setState(() => _stats = stats);
       }
-    } catch (e) {
-      if (mounted) {}
+    } catch (_) {
+      // Stats are non-critical; fail silently.
     }
+  }
+
+  Future<void> _loadStreaksForUsers(List<int> userIds) async {
+    if (userIds.isEmpty) return;
+    final String? token = await _authStorage.getAccessToken();
+    final results = await Future.wait(
+      userIds.map((id) async {
+        try {
+          final response = await http.get(
+            Uri.parse('${Environment.baseUrl}users/$id/streak'),
+            headers: {
+              'Authorization': 'Bearer $token',
+              'Content-Type': 'application/json',
+            },
+          );
+          if (response.statusCode == 200) {
+            final data = json.decode(response.body);
+            if (data['exists'] != false) {
+              return MapEntry(id, (data['streak_count'] as int? ?? 0));
+            }
+          }
+        } catch (_) {}
+        return MapEntry(id, 0);
+      }),
+    );
+    if (mounted) {
+      setState(() {
+        _userStreaks = Map.fromEntries(results);
+      });
+    }
+  }
+
+  Future<bool> _isEmailVerified() async {
+    final String? userId = await _authStorage.getUserId();
+    if (userId == null) return false;
+    final String? token = await _authStorage.getAccessToken();
+    final response = await http.get(
+      Uri.parse('${Environment.baseUrl}users/$userId'),
+      headers: {
+        'Authorization': 'Bearer $token',
+        'Content-Type': 'application/json',
+      },
+    );
+    if (response.statusCode == 200) {
+      final data = json.decode(response.body);
+      return data['email_verified'] as bool? ?? false;
+    }
+    return false;
+  }
+
+  void _showVerificationRequiredDialog() {
+    showDialog(
+      context: context,
+      builder:
+          (context) => AlertDialog(
+            icon: const Icon(Icons.mark_email_unread_outlined, size: 40),
+            title: const Text('Verify your email'),
+            content: const Text(
+              'You need to verify your email address before you can follow other users. '
+              'Please check your inbox for the verification link.',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('OK'),
+              ),
+            ],
+          ),
+    );
   }
 
   Future<void> _searchUsers(String query) async {
@@ -417,12 +312,7 @@ class _FollowersPageState extends State<FollowersPage>
           _searchResults = [];
           _isSearching = false;
         });
-        _showSnackBar(
-          _looksLikeNetworkError(e)
-              ? 'No internet connection. Check your Wi-Fi or mobile data.'
-              : 'Search failed. Please try again.',
-          isError: true,
-        );
+        _showSnackBar(_friendlyError(e, 'search users'), isError: true);
       }
     }
   }
@@ -453,20 +343,18 @@ class _FollowersPageState extends State<FollowersPage>
       final status = result['status'] as String?;
 
       if (mounted) {
-        if (status == 'pending') {
-          _showSnackBar('Follow request sent to $displayName');
-        } else {
-          _showSnackBar('Following $displayName');
-        }
+        _showSnackBar(
+          status == 'pending'
+              ? 'Follow request sent to $displayName'
+              : 'Following $displayName',
+        );
         _searchController.clear();
-        setState(() {
-          _searchResults = [];
-        });
+        setState(() => _searchResults = []);
         await _loadAllData();
       }
     } catch (e) {
       if (mounted) {
-        _showSnackBar('Failed to follow: $e', isError: true);
+        _showSnackBar(_friendlyError(e, 'follow $displayName'), isError: true);
       }
     }
   }
@@ -493,16 +381,16 @@ class _FollowersPageState extends State<FollowersPage>
       final status = result['status'] as String?;
 
       if (mounted) {
-        if (status == 'pending') {
-          _showSnackBar('Follow request sent to $displayName');
-        } else {
-          _showSnackBar('Now following $displayName');
-        }
+        _showSnackBar(
+          status == 'pending'
+              ? 'Follow request sent to $displayName'
+              : 'Now following $displayName',
+        );
         await _loadAllData();
       }
     } catch (e) {
       if (mounted) {
-        _showSnackBar('Failed to follow back: $e', isError: true);
+        _showSnackBar(_friendlyError(e, 'follow $displayName'), isError: true);
       }
     }
   }
@@ -513,14 +401,12 @@ class _FollowersPageState extends State<FollowersPage>
       if (mounted) {
         _showSnackBar('Follow request cancelled');
         _searchController.clear();
-        setState(() {
-          _searchResults = [];
-        });
+        setState(() => _searchResults = []);
         await _loadAllData();
       }
     } catch (e) {
       if (mounted) {
-        _showSnackBar('Failed to cancel request: $e', isError: true);
+        _showSnackBar(_friendlyError(e, 'cancel request'), isError: true);
       }
     }
   }
@@ -534,7 +420,7 @@ class _FollowersPageState extends State<FollowersPage>
       }
     } catch (e) {
       if (mounted) {
-        _showSnackBar('Failed to accept: $e', isError: true);
+        _showSnackBar(_friendlyError(e, 'accept request'), isError: true);
       }
     }
   }
@@ -548,7 +434,7 @@ class _FollowersPageState extends State<FollowersPage>
       }
     } catch (e) {
       if (mounted) {
-        _showSnackBar('Failed to reject: $e', isError: true);
+        _showSnackBar(_friendlyError(e, 'reject request'), isError: true);
       }
     }
   }
@@ -582,7 +468,10 @@ class _FollowersPageState extends State<FollowersPage>
         }
       } catch (e) {
         if (mounted) {
-          _showSnackBar('Failed to unfollow: $e', isError: true);
+          _showSnackBar(
+            _friendlyError(e, 'unfollow $displayName'),
+            isError: true,
+          );
         }
       }
     }
@@ -620,7 +509,7 @@ class _FollowersPageState extends State<FollowersPage>
         }
       } catch (e) {
         if (mounted) {
-          _showSnackBar('Failed to remove: $e', isError: true);
+          _showSnackBar(_friendlyError(e, 'remove follower'), isError: true);
         }
       }
     }
@@ -716,24 +605,25 @@ class _FollowersPageState extends State<FollowersPage>
         }
       } catch (e) {
         if (mounted) {
-          _showSnackBar('Failed to disconnect: $e', isError: true);
+          _showSnackBar(_friendlyError(e, 'disconnect'), isError: true);
         }
       }
     }
   }
 
-  bool _isFollowingUser(int userId) {
-    return _following.any((user) => user.id == userId);
-  }
-
-  void _showSnackBar(String message, {bool isError = false}) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: isError ? Theme.of(context).colorScheme.error : null,
-        duration: Duration(seconds: isError ? 4 : 2),
+  void _navigateToUserProfile(int userId, String displayName) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder:
+            (context) =>
+                ProfilePage(viewUserId: userId, viewDisplayName: displayName),
       ),
     );
+  }
+
+  bool _isFollowingUser(int userId) {
+    return _following.any((user) => user.id == userId);
   }
 
   @override
@@ -871,6 +761,73 @@ class _FollowersPageState extends State<FollowersPage>
           fontWeight: FontWeight.bold,
         ),
       ),
+    );
+  }
+
+  Widget _buildInlineError({
+    required bool isOffline,
+    required VoidCallback onRetry,
+  }) {
+    final theme = Theme.of(context);
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 32),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              isOffline ? Icons.wifi_off_rounded : Icons.error_outline,
+              size: 56,
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+            const SizedBox(height: 16),
+            Text(
+              isOffline ? 'No internet connection' : 'Something went wrong',
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              isOffline
+                  ? 'Check your Wi-Fi or mobile data and try again.'
+                  : 'We couldn\'t load this list. Please try again.',
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 24),
+            FilledButton.icon(
+              onPressed: onRetry,
+              icon: const Icon(Icons.refresh),
+              label: const Text('Try Again'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStreakBadge(int userId) {
+    final streak = _userStreaks[userId] ?? 0;
+    if (streak == 0) return const SizedBox.shrink();
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        const Icon(Icons.local_fire_department, size: 18, color: Colors.orange),
+        const SizedBox(width: 2),
+        Text(
+          '$streak',
+          style: const TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+            color: Colors.orange,
+          ),
+        ),
+      ],
     );
   }
 
@@ -1038,116 +995,9 @@ class _FollowersPageState extends State<FollowersPage>
     );
   }
 
-  Widget _buildPendingRequestsList(ThemeData theme) {
-    if (_isLoadingPending) {
-      return const Center(child: CircularProgressIndicator());
-    }
-
-    if (_pendingError != null) {
-      return _buildInlineError(
-        isOffline: _pendingOffline,
-        onRetry: _loadPendingRequests,
-      );
-    }
-
-    return RefreshIndicator(
-      onRefresh: _loadAllData,
-      child:
-          _pendingRequests.isEmpty
-              ? _buildEmptyState(
-                theme,
-                Icons.inbox_outlined,
-                'No pending requests',
-                'Follow requests will appear here',
-              )
-              : ListView.builder(
-                padding: const EdgeInsets.all(16),
-                itemCount: _pendingRequests.length,
-                itemBuilder: (context, index) {
-                  final request = _pendingRequests[index];
-                  return Card(
-                    margin: const EdgeInsets.only(bottom: 12),
-                    child: ListTile(
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 8,
-                      ),
-                      onTap:
-                          () => _navigateToUserProfile(
-                            request.id,
-                            request.displayName,
-                          ),
-                      leading: CircleAvatar(
-                        backgroundColor: theme.colorScheme.primaryContainer,
-                        child: Text(
-                          request.displayName.isNotEmpty
-                              ? request.displayName[0].toUpperCase()
-                              : '?',
-                          style: TextStyle(
-                            color: theme.colorScheme.onPrimaryContainer,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                      title: Row(
-                        children: [
-                          Flexible(
-                            child: Text(
-                              request.displayName,
-                              style: const TextStyle(
-                                fontWeight: FontWeight.bold,
-                              ),
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          _buildStreakBadge(request.id),
-                        ],
-                      ),
-                      subtitle: Text(
-                        '@${request.username}',
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      trailing: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          IconButton(
-                            icon: const Icon(Icons.close, size: 20),
-                            color: theme.colorScheme.error,
-                            onPressed:
-                                () => _rejectFollowRequest(
-                                  request.id,
-                                  request.displayName,
-                                ),
-                            tooltip: 'Reject',
-                          ),
-                          const SizedBox(width: 4),
-                          FilledButton(
-                            onPressed:
-                                () => _acceptFollowRequest(
-                                  request.id,
-                                  request.displayName,
-                                ),
-                            style: FilledButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 16,
-                              ),
-                            ),
-                            child: const Text('Accept'),
-                          ),
-                        ],
-                      ),
-                    ),
-                  );
-                },
-              ),
-    );
-  }
-
   Widget _buildFollowersList(ThemeData theme) {
-    if (_isLoadingFollowers) {
+    if (_isLoadingFollowers)
       return const Center(child: CircularProgressIndicator());
-    }
 
     if (_followersError != null) {
       return _buildInlineError(
@@ -1257,9 +1107,8 @@ class _FollowersPageState extends State<FollowersPage>
   }
 
   Widget _buildFollowingList(ThemeData theme) {
-    if (_isLoadingFollowing) {
+    if (_isLoadingFollowing)
       return const Center(child: CircularProgressIndicator());
-    }
 
     if (_followingError != null) {
       return _buildInlineError(
@@ -1327,11 +1176,158 @@ class _FollowersPageState extends State<FollowersPage>
     );
   }
 
+  Widget _buildPendingRequestsList(ThemeData theme) {
+    if (_isLoadingPending)
+      return const Center(child: CircularProgressIndicator());
+
+    if (_pendingError != null) {
+      return _buildInlineError(
+        isOffline: _pendingOffline,
+        onRetry: _loadPendingRequests,
+      );
+    }
+
+    return RefreshIndicator(
+      onRefresh: _loadAllData,
+      child:
+          _pendingRequests.isEmpty
+              ? _buildEmptyState(
+                theme,
+                Icons.inbox_outlined,
+                'No pending requests',
+                'Follow requests will appear here',
+              )
+              : ListView.builder(
+                padding: const EdgeInsets.all(16),
+                itemCount: _pendingRequests.length,
+                itemBuilder: (context, index) {
+                  final request = _pendingRequests[index];
+                  return Card(
+                    margin: const EdgeInsets.only(bottom: 12),
+                    child: ListTile(
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 8,
+                      ),
+                      onTap:
+                          () => _navigateToUserProfile(
+                            request.id,
+                            request.displayName,
+                          ),
+                      leading: CircleAvatar(
+                        backgroundColor: theme.colorScheme.primaryContainer,
+                        child: Text(
+                          request.displayName.isNotEmpty
+                              ? request.displayName[0].toUpperCase()
+                              : '?',
+                          style: TextStyle(
+                            color: theme.colorScheme.onPrimaryContainer,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                      title: Row(
+                        children: [
+                          Flexible(
+                            child: Text(
+                              request.displayName,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          _buildStreakBadge(request.id),
+                        ],
+                      ),
+                      subtitle: Text(
+                        '@${request.username}',
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          IconButton(
+                            icon: const Icon(Icons.close, size: 20),
+                            color: theme.colorScheme.error,
+                            onPressed:
+                                () => _rejectFollowRequest(
+                                  request.id,
+                                  request.displayName,
+                                ),
+                            tooltip: 'Reject',
+                          ),
+                          const SizedBox(width: 4),
+                          FilledButton(
+                            onPressed:
+                                () => _acceptFollowRequest(
+                                  request.id,
+                                  request.displayName,
+                                ),
+                            style: FilledButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                              ),
+                            ),
+                            child: const Text('Accept'),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              ),
+    );
+  }
+
+  Widget _buildSuggestedUserTile(Follower user, ThemeData theme) {
+    return Card(
+      margin: const EdgeInsets.only(bottom: 8),
+      child: ListTile(
+        onTap: () => _navigateToUserProfile(user.id, user.displayName),
+        leading: CircleAvatar(
+          backgroundColor: theme.colorScheme.primaryContainer,
+          child: Text(
+            user.displayName.isNotEmpty
+                ? user.displayName[0].toUpperCase()
+                : '?',
+            style: TextStyle(
+              color: theme.colorScheme.onPrimaryContainer,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ),
+        title: Row(
+          children: [
+            Flexible(
+              child: Text(
+                user.displayName,
+                style: const TextStyle(fontWeight: FontWeight.bold),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            const SizedBox(width: 8),
+            _buildStreakBadge(user.id),
+          ],
+        ),
+        subtitle: Text('@${user.username}', overflow: TextOverflow.ellipsis),
+        trailing: FilledButton.icon(
+          onPressed: () => _followBackUser(user.id, user.displayName),
+          style: FilledButton.styleFrom(
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+          ),
+          icon: const Icon(Icons.person_add, size: 16),
+          label: const Text('Follow Back', style: TextStyle(fontSize: 12)),
+        ),
+      ),
+    );
+  }
+
   Widget _buildFollowingEmptyWithCTA(ThemeData theme) {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        // CTA card
         Container(
           padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
@@ -1363,17 +1359,13 @@ class _FollowersPageState extends State<FollowersPage>
               ),
               const SizedBox(height: 16),
               FilledButton.icon(
-                onPressed: () {
-                  // Focus the search bar
-                  _searchFocusNode.requestFocus();
-                },
+                onPressed: () => _searchFocusNode.requestFocus(),
                 icon: const Icon(Icons.search, size: 18),
                 label: const Text('Search for people'),
               ),
             ],
           ),
         ),
-        // Suggested users section (from _followers who you haven't followed back)
         if (_followers.isNotEmpty) ...[
           const SizedBox(height: 24),
           Text(
