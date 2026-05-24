@@ -39,6 +39,12 @@ class _FollowersPageState extends State<FollowersPage>
   bool _isLoadingFollowers = false;
   bool _isLoadingFollowing = false;
   bool _isLoadingPending = false;
+  String? _followersError;
+  String? _followingError;
+  String? _pendingError;
+  bool _followersOffline = false;
+  bool _followingOffline = false;
+  bool _pendingOffline = false;
 
   @override
   void initState() {
@@ -94,6 +100,17 @@ class _FollowersPageState extends State<FollowersPage>
     await _loadStreaksForUsers(allUserIds);
   }
 
+  bool _looksLikeNetworkError(dynamic error) {
+    final msg = error.toString().toLowerCase();
+    return msg.contains('socketexception') ||
+        msg.contains('clientexception') ||
+        msg.contains('network is unreachable') ||
+        msg.contains('connection refused') ||
+        msg.contains('failed host lookup') ||
+        msg.contains('handshakeexception') ||
+        msg.contains('os error');
+  }
+
   void _navigateToUserProfile(int userId, String displayName) {
     Navigator.push(
       context,
@@ -106,7 +123,11 @@ class _FollowersPageState extends State<FollowersPage>
   }
 
   Future<void> _loadFollowers() async {
-    setState(() => _isLoadingFollowers = true);
+    setState(() {
+      _isLoadingFollowers = true;
+      _followersError = null;
+      _followersOffline = false;
+    });
     try {
       final followers = await _followersService.getFollowers();
       if (mounted) {
@@ -120,6 +141,8 @@ class _FollowersPageState extends State<FollowersPage>
         setState(() {
           _followers = [];
           _isLoadingFollowers = false;
+          _followersError = e.toString();
+          _followersOffline = _looksLikeNetworkError(e);
         });
       }
     }
@@ -194,7 +217,11 @@ class _FollowersPageState extends State<FollowersPage>
   }
 
   Future<void> _loadFollowing() async {
-    setState(() => _isLoadingFollowing = true);
+    setState(() {
+      _isLoadingFollowing = true;
+      _followingError = null;
+      _followingOffline = false;
+    });
     try {
       final following = await _followersService.getFollowing();
       if (mounted) {
@@ -208,6 +235,8 @@ class _FollowersPageState extends State<FollowersPage>
         setState(() {
           _following = [];
           _isLoadingFollowing = false;
+          _followingError = e.toString();
+          _followingOffline = _looksLikeNetworkError(e);
         });
       }
     }
@@ -277,8 +306,58 @@ class _FollowersPageState extends State<FollowersPage>
     );
   }
 
+  Widget _buildInlineError({
+    required bool isOffline,
+    required VoidCallback onRetry,
+  }) {
+    final theme = Theme.of(context);
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 32),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              isOffline ? Icons.wifi_off_rounded : Icons.error_outline,
+              size: 56,
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+            const SizedBox(height: 16),
+            Text(
+              isOffline ? 'No internet connection' : 'Something went wrong',
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              isOffline
+                  ? 'Check your Wi-Fi or mobile data and try again.'
+                  : 'We couldn\'t load this list. Please try again.',
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 24),
+            FilledButton.icon(
+              onPressed: onRetry,
+              icon: const Icon(Icons.refresh),
+              label: const Text('Try Again'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Future<void> _loadPendingRequests() async {
-    setState(() => _isLoadingPending = true);
+    setState(() {
+      _isLoadingPending = true;
+      _pendingError = null;
+      _pendingOffline = false;
+    });
     try {
       final pending = await _followersService.getPendingFollowRequests();
       if (mounted) {
@@ -293,6 +372,8 @@ class _FollowersPageState extends State<FollowersPage>
         setState(() {
           _pendingRequests = [];
           _isLoadingPending = false;
+          _pendingError = e.toString();
+          _pendingOffline = _looksLikeNetworkError(e);
         });
       }
     }
@@ -336,7 +417,12 @@ class _FollowersPageState extends State<FollowersPage>
           _searchResults = [];
           _isSearching = false;
         });
-        _showSnackBar('Search failed: $e', isError: true);
+        _showSnackBar(
+          _looksLikeNetworkError(e)
+              ? 'No internet connection. Check your Wi-Fi or mobile data.'
+              : 'Search failed. Please try again.',
+          isError: true,
+        );
       }
     }
   }
@@ -957,6 +1043,13 @@ class _FollowersPageState extends State<FollowersPage>
       return const Center(child: CircularProgressIndicator());
     }
 
+    if (_pendingError != null) {
+      return _buildInlineError(
+        isOffline: _pendingOffline,
+        onRetry: _loadPendingRequests,
+      );
+    }
+
     return RefreshIndicator(
       onRefresh: _loadAllData,
       child:
@@ -1054,6 +1147,13 @@ class _FollowersPageState extends State<FollowersPage>
   Widget _buildFollowersList(ThemeData theme) {
     if (_isLoadingFollowers) {
       return const Center(child: CircularProgressIndicator());
+    }
+
+    if (_followersError != null) {
+      return _buildInlineError(
+        isOffline: _followersOffline,
+        onRetry: _loadFollowers,
+      );
     }
 
     return RefreshIndicator(
@@ -1157,8 +1257,16 @@ class _FollowersPageState extends State<FollowersPage>
   }
 
   Widget _buildFollowingList(ThemeData theme) {
-    if (_isLoadingFollowing)
+    if (_isLoadingFollowing) {
       return const Center(child: CircularProgressIndicator());
+    }
+
+    if (_followingError != null) {
+      return _buildInlineError(
+        isOffline: _followingOffline,
+        onRetry: _loadFollowing,
+      );
+    }
 
     return RefreshIndicator(
       onRefresh: _loadAllData,

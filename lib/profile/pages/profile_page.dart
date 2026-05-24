@@ -23,6 +23,8 @@ class _ProfilePageState extends State<ProfilePage> {
       AuthenticationTokenStorageService();
   final TemplateService _templateService = TemplateService.instance;
 
+  bool _isOffline = false;
+
   Map<String, dynamic>? _userInfo;
   List<Map<String, dynamic>> _userPosts = [];
   bool _isLoading = true;
@@ -38,6 +40,7 @@ class _ProfilePageState extends State<ProfilePage> {
     setState(() {
       _isLoading = true;
       _error = null;
+      _isOffline = false;
     });
 
     try {
@@ -55,10 +58,24 @@ class _ProfilePageState extends State<ProfilePage> {
 
       await Future.wait([_loadUserInfo(userId), _loadUserPosts(userId)]);
     } catch (e) {
-      setState(() => _error = e.toString());
+      setState(() {
+        _error = e.toString();
+        _isOffline = _looksLikeNetworkError(e);
+      });
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
+  }
+
+  bool _looksLikeNetworkError(dynamic error) {
+    final msg = error.toString().toLowerCase();
+    return msg.contains('socketexception') ||
+        msg.contains('clientexception') ||
+        msg.contains('network is unreachable') ||
+        msg.contains('connection refused') ||
+        msg.contains('failed host lookup') ||
+        msg.contains('handshakeexception') ||
+        msg.contains('os error');
   }
 
   Future<void> _loadUserInfo(String userId) async {
@@ -248,26 +265,56 @@ class _ProfilePageState extends State<ProfilePage> {
     }
 
     if (_error != null) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.error_outline, size: 64, color: theme.colorScheme.error),
-            const SizedBox(height: 16),
-            Text(
-              'Failed to load profile',
-              style: theme.textTheme.headlineSmall,
-            ),
-            const SizedBox(height: 8),
-            Text(_error!, style: theme.textTheme.bodyMedium),
-            const SizedBox(height: 16),
-            FilledButton(
-              onPressed: _loadProfileData,
-              child: const Text('Retry'),
-            ),
-          ],
+      final errorWidget = Center(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 32),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                _isOffline ? Icons.wifi_off_rounded : Icons.error_outline,
+                size: 64,
+                color:
+                    _isOffline
+                        ? theme.colorScheme.onSurfaceVariant
+                        : theme.colorScheme.error,
+              ),
+              const SizedBox(height: 16),
+              Text(
+                _isOffline ? 'No internet connection' : 'Something went wrong',
+                style: theme.textTheme.headlineSmall?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                _isOffline
+                    ? 'Check your Wi-Fi or mobile data and try again.'
+                    : 'We couldn\'t load this profile. Please try again.',
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 24),
+              FilledButton.icon(
+                onPressed: _loadProfileData,
+                icon: const Icon(Icons.refresh),
+                label: const Text('Try Again'),
+              ),
+            ],
+          ),
         ),
       );
+
+      if (widget.isViewingOther) {
+        return Scaffold(
+          appBar: AppBar(title: Text(widget.viewDisplayName ?? 'Profile')),
+          body: errorWidget,
+        );
+      }
+      return errorWidget;
     }
 
     final content = RefreshIndicator(
