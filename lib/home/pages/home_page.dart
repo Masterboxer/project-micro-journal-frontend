@@ -335,7 +335,7 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
     await flutterLocalNotificationsPlugin.show(
       9999,
-      'Time to reflect 🧪',
+      'Time to Reflecto 🧪',
       'Tap to open Micro Journaling Habit page',
       notificationDetails,
       payload: 'daily_reminder',
