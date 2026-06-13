@@ -133,10 +133,15 @@ class _OnboardingPageState extends State<OnboardingPage> {
 
   String get _inviteMessage {
     final name = _currentUserDisplayName ?? 'A friend';
-    return '$name wants you on Reflecto \n\n'
+
+    return '$name wants you on Reflecto\n\n'
         'We don\'t always get the chance to talk to friends and family every day, '
         'but Reflecto makes it easy to keep up with the little moments in each other\'s lives through one daily update.\n\n'
-        'Join $name and connect with them on Reflecto';
+        'Join $name and connect with them on Reflecto.\n\n'
+        '🌐 Website:\n'
+        'https://reflecto.co.in/\n\n'
+        '📱 Android App:\n'
+        'https://play.google.com/store/apps/details?id=com.masterboxer.reflecto';
   }
 
   Future<void> _shareInvite() async {
