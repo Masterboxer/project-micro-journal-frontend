@@ -656,9 +656,11 @@ class _FollowersPageState extends State<FollowersPage>
     return _following.any((user) => user.id == userId);
   }
 
+  bool get _showInviteBanner => (_stats?.followersCount ?? 0) <= 3;
+
   String get _inviteMessage {
     final name = _currentUserDisplayName ?? 'A friend';
-    return '$name wants you on Reflecto 🌿\n\n'
+    return '$name wants you on Reflecto \n\n'
         'We don\'t always get the chance to talk to friends and family every day, but Reflecto makes it easy to keep up with the little moments in each other\'s lives through one daily update.\n\n'
         'Join $name and start your streak with Reflecto';
   }
@@ -731,7 +733,7 @@ class _FollowersPageState extends State<FollowersPage>
                       ),
                       const SizedBox(height: 3),
                       Text(
-                        'Help $name keep up with the little moments. Share reflecto.app with friends and family.',
+                        'Hey $name, keep up with the little moments. Share Reflecto with friends and family.',
                         style: theme.textTheme.bodySmall?.copyWith(
                           color: onPrimaryFaded,
                           height: 1.4,
@@ -791,7 +793,7 @@ class _FollowersPageState extends State<FollowersPage>
                   controller: _searchController,
                   focusNode: _searchFocusNode,
                   decoration: InputDecoration(
-                    hintText: 'Search users...',
+                    hintText: 'Search all users...',
                     prefixIcon: const Icon(Icons.search),
                     suffixIcon:
                         _searchController.text.isNotEmpty
@@ -1154,7 +1156,7 @@ class _FollowersPageState extends State<FollowersPage>
           _followers.isEmpty
               ? ListView(
                 children: [
-                  _buildInviteBanner(theme),
+                  if (_showInviteBanner) _buildInviteBanner(theme),
                   const SizedBox(height: 40),
                   _buildEmptyStateInline(
                     theme,
@@ -1166,10 +1168,13 @@ class _FollowersPageState extends State<FollowersPage>
               )
               : ListView.builder(
                 padding: EdgeInsets.zero,
-                itemCount: _followers.length + 1,
+                itemCount: _followers.length + (_showInviteBanner ? 1 : 0),
                 itemBuilder: (context, index) {
-                  if (index == 0) return _buildInviteBanner(theme);
-                  final follower = _followers[index - 1];
+                  if (_showInviteBanner && index == 0) {
+                    return _buildInviteBanner(theme);
+                  }
+                  final follower =
+                      _followers[_showInviteBanner ? index - 1 : index];
                   final isFollowingBack = _isFollowingUser(follower.id);
 
                   return Padding(
@@ -1276,7 +1281,7 @@ class _FollowersPageState extends State<FollowersPage>
           _following.isEmpty
               ? ListView(
                 children: [
-                  _buildInviteBanner(theme),
+                  if (_showInviteBanner) _buildInviteBanner(theme),
                   const SizedBox(height: 40),
                   _buildEmptyStateInline(
                     theme,
@@ -1288,10 +1293,13 @@ class _FollowersPageState extends State<FollowersPage>
               )
               : ListView.builder(
                 padding: EdgeInsets.zero,
-                itemCount: _following.length + 1,
+                itemCount: _following.length + (_showInviteBanner ? 1 : 0),
                 itemBuilder: (context, index) {
-                  if (index == 0) return _buildInviteBanner(theme);
-                  final user = _following[index - 1];
+                  if (_showInviteBanner && index == 0) {
+                    return _buildInviteBanner(theme);
+                  }
+                  final user =
+                      _following[_showInviteBanner ? index - 1 : index];
                   return Padding(
                     padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
                     child: Card(
@@ -1364,7 +1372,7 @@ class _FollowersPageState extends State<FollowersPage>
           _pendingRequests.isEmpty
               ? ListView(
                 children: [
-                  _buildInviteBanner(theme),
+                  if (_showInviteBanner) _buildInviteBanner(theme),
                   const SizedBox(height: 40),
                   _buildEmptyStateInline(
                     theme,
@@ -1376,10 +1384,14 @@ class _FollowersPageState extends State<FollowersPage>
               )
               : ListView.builder(
                 padding: EdgeInsets.zero,
-                itemCount: _pendingRequests.length + 1,
+                itemCount:
+                    _pendingRequests.length + (_showInviteBanner ? 1 : 0),
                 itemBuilder: (context, index) {
-                  if (index == 0) return _buildInviteBanner(theme);
-                  final request = _pendingRequests[index - 1];
+                  if (_showInviteBanner && index == 0) {
+                    return _buildInviteBanner(theme);
+                  }
+                  final request =
+                      _pendingRequests[_showInviteBanner ? index - 1 : index];
                   return Padding(
                     padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
                     child: Card(
