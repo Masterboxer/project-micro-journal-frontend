@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:share_plus/share_plus.dart';
 import 'package:project_micro_journal/authentication/services/authentication_token_storage_service.dart';
 import 'package:project_micro_journal/environment/development.dart';
 import 'package:project_micro_journal/followers/service/followers_service.dart';
@@ -34,6 +35,8 @@ class _FollowersPageState extends State<FollowersPage>
   List<Follower> _pendingRequests = [];
   List<UserSearchResult> _searchResults = [];
   FollowStats? _stats;
+
+  String? _currentUserDisplayName;
 
   bool _isSearching = false;
   bool _isLoadingFollowers = false;
@@ -80,6 +83,7 @@ class _FollowersPageState extends State<FollowersPage>
     WidgetsBinding.instance.addObserver(this);
     _tabController = TabController(length: 3, vsync: this);
     _tabController.addListener(_onTabChanged);
+    _loadCurrentUserDisplayName();
     _loadAllData();
   }
 
@@ -108,6 +112,32 @@ class _FollowersPageState extends State<FollowersPage>
         _searchResults = [];
         _isSearching = false;
       });
+    }
+  }
+
+  Future<void> _loadCurrentUserDisplayName() async {
+    try {
+      final String? userId = await _authStorage.getUserId();
+      if (userId == null) return;
+      final String? token = await _authStorage.getAccessToken();
+      final response = await http.get(
+        Uri.parse('${Environment.baseUrl}users/$userId'),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+      );
+      if (response.statusCode == 200 && mounted) {
+        final data = json.decode(response.body);
+        setState(() {
+          _currentUserDisplayName =
+              data['display_name'] as String? ??
+              data['username'] as String? ??
+              'A friend';
+        });
+      }
+    } catch (_) {
+      // Non-critical; fall back to generic text.
     }
   }
 
@@ -626,6 +656,117 @@ class _FollowersPageState extends State<FollowersPage>
     return _following.any((user) => user.id == userId);
   }
 
+  String get _inviteMessage {
+    final name = _currentUserDisplayName ?? 'A friend';
+    return '$name wants you on Reflecto 🌿\n\n'
+        'We don\'t always get the chance to talk to friends and family every day, but Reflecto makes it easy to keep up with the little moments in each other\'s lives through one daily update.\n\n'
+        'Join $name and start your streak with Reflecto';
+  }
+
+  Future<void> _shareInvite() async {
+    await Share.share(
+      _inviteMessage,
+      subject: '${_currentUserDisplayName ?? 'A friend'} wants you on Reflecto',
+    );
+  }
+
+  Widget _buildInviteBanner(ThemeData theme) {
+    final cs = theme.colorScheme;
+    final name = _currentUserDisplayName ?? 'you';
+
+    final iconBlobColor = cs.onPrimary.withOpacity(0.18);
+    final onPrimaryFaded = cs.onPrimary.withOpacity(0.85);
+
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 16, 16, 4),
+      decoration: BoxDecoration(
+        color: cs.primary,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: cs.shadow.withOpacity(0.18),
+            blurRadius: 10,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(16),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(16),
+          onTap: _shareInvite,
+          splashColor: cs.onPrimary.withOpacity(0.1),
+          highlightColor: cs.onPrimary.withOpacity(0.06),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Container(
+                  width: 48,
+                  height: 48,
+                  decoration: BoxDecoration(
+                    color: iconBlobColor,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(
+                    Icons.person_add_alt_1_rounded,
+                    color: cs.onPrimary,
+                    size: 26,
+                  ),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Invite friends to Reflecto',
+                        style: theme.textTheme.titleSmall?.copyWith(
+                          color: cs.onPrimary,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 0.1,
+                        ),
+                      ),
+                      const SizedBox(height: 3),
+                      Text(
+                        'Help $name keep up with the little moments. Share reflecto.app with friends and family.',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: onPrimaryFaded,
+                          height: 1.4,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
+                    color: cs.onPrimary,
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(
+                    'Invite',
+                    style: TextStyle(
+                      color: cs.primary,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 13,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -996,8 +1137,9 @@ class _FollowersPageState extends State<FollowersPage>
   }
 
   Widget _buildFollowersList(ThemeData theme) {
-    if (_isLoadingFollowers)
+    if (_isLoadingFollowers) {
       return const Center(child: CircularProgressIndicator());
+    }
 
     if (_followersError != null) {
       return _buildInlineError(
@@ -1010,94 +1152,104 @@ class _FollowersPageState extends State<FollowersPage>
       onRefresh: _loadAllData,
       child:
           _followers.isEmpty
-              ? _buildEmptyState(
-                theme,
-                Icons.people_outline,
-                'No followers yet',
-                'Users who follow you will appear here',
+              ? ListView(
+                children: [
+                  _buildInviteBanner(theme),
+                  const SizedBox(height: 40),
+                  _buildEmptyStateInline(
+                    theme,
+                    Icons.people_outline,
+                    'No followers yet',
+                    'Users who follow you will appear here',
+                  ),
+                ],
               )
               : ListView.builder(
-                padding: const EdgeInsets.all(16),
-                itemCount: _followers.length,
+                padding: EdgeInsets.zero,
+                itemCount: _followers.length + 1,
                 itemBuilder: (context, index) {
-                  final follower = _followers[index];
+                  if (index == 0) return _buildInviteBanner(theme);
+                  final follower = _followers[index - 1];
                   final isFollowingBack = _isFollowingUser(follower.id);
 
-                  return Card(
-                    margin: const EdgeInsets.only(bottom: 12),
-                    child: ListTile(
-                      onTap:
-                          () => _navigateToUserProfile(
-                            follower.id,
-                            follower.displayName,
-                          ),
-                      leading: CircleAvatar(
-                        backgroundColor: theme.colorScheme.primaryContainer,
-                        child: Text(
-                          follower.displayName.isNotEmpty
-                              ? follower.displayName[0].toUpperCase()
-                              : '?',
-                          style: TextStyle(
-                            color: theme.colorScheme.onPrimaryContainer,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                      title: Row(
-                        children: [
-                          Flexible(
-                            child: Text(
+                  return Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                    child: Card(
+                      margin: EdgeInsets.zero,
+                      child: ListTile(
+                        onTap:
+                            () => _navigateToUserProfile(
+                              follower.id,
                               follower.displayName,
-                              style: const TextStyle(
-                                fontWeight: FontWeight.bold,
-                              ),
-                              overflow: TextOverflow.ellipsis,
+                            ),
+                        leading: CircleAvatar(
+                          backgroundColor: theme.colorScheme.primaryContainer,
+                          child: Text(
+                            follower.displayName.isNotEmpty
+                                ? follower.displayName[0].toUpperCase()
+                                : '?',
+                            style: TextStyle(
+                              color: theme.colorScheme.onPrimaryContainer,
+                              fontWeight: FontWeight.bold,
                             ),
                           ),
-                          const SizedBox(width: 8),
-                          _buildStreakBadge(follower.id),
-                        ],
-                      ),
-                      subtitle: Text(
-                        '@${follower.username}',
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      trailing: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          if (!isFollowingBack)
-                            FilledButton.icon(
+                        ),
+                        title: Row(
+                          children: [
+                            Flexible(
+                              child: Text(
+                                follower.displayName,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            _buildStreakBadge(follower.id),
+                          ],
+                        ),
+                        subtitle: Text(
+                          '@${follower.username}',
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        trailing: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            if (!isFollowingBack)
+                              FilledButton.icon(
+                                onPressed:
+                                    () => _followBackUser(
+                                      follower.id,
+                                      follower.displayName,
+                                    ),
+                                style: FilledButton.styleFrom(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 12,
+                                  ),
+                                ),
+                                icon: const Icon(Icons.person_add, size: 16),
+                                label: const Text(
+                                  'Follow Back',
+                                  style: TextStyle(fontSize: 12),
+                                ),
+                              )
+                            else
+                              const SizedBox(width: 8),
+                            IconButton(
+                              icon: Icon(
+                                Icons.person_remove,
+                                color: theme.colorScheme.error.withOpacity(0.7),
+                              ),
                               onPressed:
-                                  () => _followBackUser(
+                                  () => _removeFollower(
                                     follower.id,
                                     follower.displayName,
                                   ),
-                              style: FilledButton.styleFrom(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 12,
-                                ),
-                              ),
-                              icon: const Icon(Icons.person_add, size: 16),
-                              label: const Text(
-                                'Follow Back',
-                                style: TextStyle(fontSize: 12),
-                              ),
-                            )
-                          else
-                            const SizedBox(width: 8),
-                          IconButton(
-                            icon: Icon(
-                              Icons.person_remove,
-                              color: theme.colorScheme.error.withOpacity(0.7),
+                              tooltip: 'Remove follower',
                             ),
-                            onPressed:
-                                () => _removeFollower(
-                                  follower.id,
-                                  follower.displayName,
-                                ),
-                            tooltip: 'Remove follower',
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
                     ),
                   );
@@ -1107,8 +1259,9 @@ class _FollowersPageState extends State<FollowersPage>
   }
 
   Widget _buildFollowingList(ThemeData theme) {
-    if (_isLoadingFollowing)
+    if (_isLoadingFollowing) {
       return const Center(child: CircularProgressIndicator());
+    }
 
     if (_followingError != null) {
       return _buildInlineError(
@@ -1121,53 +1274,70 @@ class _FollowersPageState extends State<FollowersPage>
       onRefresh: _loadAllData,
       child:
           _following.isEmpty
-              ? _buildFollowingEmptyWithCTA(theme)
+              ? ListView(
+                children: [
+                  _buildInviteBanner(theme),
+                  const SizedBox(height: 40),
+                  _buildEmptyStateInline(
+                    theme,
+                    Icons.group_outlined,
+                    'Not following anyone yet',
+                    'Search for friends to follow them',
+                  ),
+                ],
+              )
               : ListView.builder(
-                padding: const EdgeInsets.all(16),
-                itemCount: _following.length,
+                padding: EdgeInsets.zero,
+                itemCount: _following.length + 1,
                 itemBuilder: (context, index) {
-                  final user = _following[index];
-                  return Card(
-                    margin: const EdgeInsets.only(bottom: 12),
-                    child: ListTile(
-                      onTap:
-                          () =>
-                              _navigateToUserProfile(user.id, user.displayName),
-                      leading: CircleAvatar(
-                        backgroundColor: theme.colorScheme.secondaryContainer,
-                        child: Text(
-                          user.displayName.isNotEmpty
-                              ? user.displayName[0].toUpperCase()
-                              : '?',
-                          style: TextStyle(
-                            color: theme.colorScheme.onSecondaryContainer,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                      title: Row(
-                        children: [
-                          Flexible(
-                            child: Text(
+                  if (index == 0) return _buildInviteBanner(theme);
+                  final user = _following[index - 1];
+                  return Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                    child: Card(
+                      margin: EdgeInsets.zero,
+                      child: ListTile(
+                        onTap:
+                            () => _navigateToUserProfile(
+                              user.id,
                               user.displayName,
-                              style: const TextStyle(
-                                fontWeight: FontWeight.bold,
-                              ),
-                              overflow: TextOverflow.ellipsis,
+                            ),
+                        leading: CircleAvatar(
+                          backgroundColor: theme.colorScheme.secondaryContainer,
+                          child: Text(
+                            user.displayName.isNotEmpty
+                                ? user.displayName[0].toUpperCase()
+                                : '?',
+                            style: TextStyle(
+                              color: theme.colorScheme.onSecondaryContainer,
+                              fontWeight: FontWeight.bold,
                             ),
                           ),
-                          const SizedBox(width: 8),
-                          _buildStreakBadge(user.id),
-                        ],
-                      ),
-                      subtitle: Text(
-                        '@${user.username}',
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      trailing: IconButton(
-                        icon: const Icon(Icons.more_vert),
-                        onPressed: () => _showUnfollowOptions(user),
-                        tooltip: 'Options',
+                        ),
+                        title: Row(
+                          children: [
+                            Flexible(
+                              child: Text(
+                                user.displayName,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            _buildStreakBadge(user.id),
+                          ],
+                        ),
+                        subtitle: Text(
+                          '@${user.username}',
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        trailing: IconButton(
+                          icon: const Icon(Icons.more_vert),
+                          onPressed: () => _showUnfollowOptions(user),
+                          tooltip: 'Options',
+                        ),
                       ),
                     ),
                   );
@@ -1177,8 +1347,9 @@ class _FollowersPageState extends State<FollowersPage>
   }
 
   Widget _buildPendingRequestsList(ThemeData theme) {
-    if (_isLoadingPending)
+    if (_isLoadingPending) {
       return const Center(child: CircularProgressIndicator());
+    }
 
     if (_pendingError != null) {
       return _buildInlineError(
@@ -1191,88 +1362,98 @@ class _FollowersPageState extends State<FollowersPage>
       onRefresh: _loadAllData,
       child:
           _pendingRequests.isEmpty
-              ? _buildEmptyState(
-                theme,
-                Icons.inbox_outlined,
-                'No pending requests',
-                'Follow requests will appear here',
+              ? ListView(
+                children: [
+                  _buildInviteBanner(theme),
+                  const SizedBox(height: 40),
+                  _buildEmptyStateInline(
+                    theme,
+                    Icons.inbox_outlined,
+                    'No pending requests',
+                    'Follow requests will appear here',
+                  ),
+                ],
               )
               : ListView.builder(
-                padding: const EdgeInsets.all(16),
-                itemCount: _pendingRequests.length,
+                padding: EdgeInsets.zero,
+                itemCount: _pendingRequests.length + 1,
                 itemBuilder: (context, index) {
-                  final request = _pendingRequests[index];
-                  return Card(
-                    margin: const EdgeInsets.only(bottom: 12),
-                    child: ListTile(
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 8,
-                      ),
-                      onTap:
-                          () => _navigateToUserProfile(
-                            request.id,
-                            request.displayName,
-                          ),
-                      leading: CircleAvatar(
-                        backgroundColor: theme.colorScheme.primaryContainer,
-                        child: Text(
-                          request.displayName.isNotEmpty
-                              ? request.displayName[0].toUpperCase()
-                              : '?',
-                          style: TextStyle(
-                            color: theme.colorScheme.onPrimaryContainer,
-                            fontWeight: FontWeight.bold,
+                  if (index == 0) return _buildInviteBanner(theme);
+                  final request = _pendingRequests[index - 1];
+                  return Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                    child: Card(
+                      margin: EdgeInsets.zero,
+                      child: ListTile(
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 8,
+                        ),
+                        onTap:
+                            () => _navigateToUserProfile(
+                              request.id,
+                              request.displayName,
+                            ),
+                        leading: CircleAvatar(
+                          backgroundColor: theme.colorScheme.primaryContainer,
+                          child: Text(
+                            request.displayName.isNotEmpty
+                                ? request.displayName[0].toUpperCase()
+                                : '?',
+                            style: TextStyle(
+                              color: theme.colorScheme.onPrimaryContainer,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
                         ),
-                      ),
-                      title: Row(
-                        children: [
-                          Flexible(
-                            child: Text(
-                              request.displayName,
-                              style: const TextStyle(
-                                fontWeight: FontWeight.bold,
-                              ),
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          _buildStreakBadge(request.id),
-                        ],
-                      ),
-                      subtitle: Text(
-                        '@${request.username}',
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      trailing: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          IconButton(
-                            icon: const Icon(Icons.close, size: 20),
-                            color: theme.colorScheme.error,
-                            onPressed:
-                                () => _rejectFollowRequest(
-                                  request.id,
-                                  request.displayName,
+                        title: Row(
+                          children: [
+                            Flexible(
+                              child: Text(
+                                request.displayName,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
                                 ),
-                            tooltip: 'Reject',
-                          ),
-                          const SizedBox(width: 4),
-                          FilledButton(
-                            onPressed:
-                                () => _acceptFollowRequest(
-                                  request.id,
-                                  request.displayName,
-                                ),
-                            style: FilledButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 16,
+                                overflow: TextOverflow.ellipsis,
                               ),
                             ),
-                            child: const Text('Accept'),
-                          ),
-                        ],
+                            const SizedBox(width: 8),
+                            _buildStreakBadge(request.id),
+                          ],
+                        ),
+                        subtitle: Text(
+                          '@${request.username}',
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        trailing: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            IconButton(
+                              icon: const Icon(Icons.close, size: 20),
+                              color: theme.colorScheme.error,
+                              onPressed:
+                                  () => _rejectFollowRequest(
+                                    request.id,
+                                    request.displayName,
+                                  ),
+                              tooltip: 'Reject',
+                            ),
+                            const SizedBox(width: 4),
+                            FilledButton(
+                              onPressed:
+                                  () => _acceptFollowRequest(
+                                    request.id,
+                                    request.displayName,
+                                  ),
+                              style: FilledButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 16,
+                                ),
+                              ),
+                              child: const Text('Accept'),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   );
@@ -1281,146 +1462,37 @@ class _FollowersPageState extends State<FollowersPage>
     );
   }
 
-  Widget _buildSuggestedUserTile(Follower user, ThemeData theme) {
-    return Card(
-      margin: const EdgeInsets.only(bottom: 8),
-      child: ListTile(
-        onTap: () => _navigateToUserProfile(user.id, user.displayName),
-        leading: CircleAvatar(
-          backgroundColor: theme.colorScheme.primaryContainer,
-          child: Text(
-            user.displayName.isNotEmpty
-                ? user.displayName[0].toUpperCase()
-                : '?',
-            style: TextStyle(
-              color: theme.colorScheme.onPrimaryContainer,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-        ),
-        title: Row(
-          children: [
-            Flexible(
-              child: Text(
-                user.displayName,
-                style: const TextStyle(fontWeight: FontWeight.bold),
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-            const SizedBox(width: 8),
-            _buildStreakBadge(user.id),
-          ],
-        ),
-        subtitle: Text('@${user.username}', overflow: TextOverflow.ellipsis),
-        trailing: FilledButton.icon(
-          onPressed: () => _followBackUser(user.id, user.displayName),
-          style: FilledButton.styleFrom(
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-          ),
-          icon: const Icon(Icons.person_add, size: 16),
-          label: const Text('Follow Back', style: TextStyle(fontSize: 12)),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildFollowingEmptyWithCTA(ThemeData theme) {
-    return ListView(
-      padding: const EdgeInsets.all(16),
-      children: [
-        Container(
-          padding: const EdgeInsets.all(20),
-          decoration: BoxDecoration(
-            color: theme.colorScheme.primaryContainer,
-            borderRadius: BorderRadius.circular(16),
-          ),
-          child: Column(
-            children: [
-              Icon(
-                Icons.group_outlined,
-                size: 48,
-                color: theme.colorScheme.onPrimaryContainer,
-              ),
-              const SizedBox(height: 12),
-              Text(
-                'Find people to follow',
-                style: theme.textTheme.titleMedium?.copyWith(
-                  color: theme.colorScheme.onPrimaryContainer,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 6),
-              Text(
-                'Search for friends by name or @username to follow them and see their journals and streaks.',
-                textAlign: TextAlign.center,
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.onPrimaryContainer,
-                ),
-              ),
-              const SizedBox(height: 16),
-              FilledButton.icon(
-                onPressed: () => _searchFocusNode.requestFocus(),
-                icon: const Icon(Icons.search, size: 18),
-                label: const Text('Search for people'),
-              ),
-            ],
-          ),
-        ),
-        if (_followers.isNotEmpty) ...[
-          const SizedBox(height: 24),
-          Text(
-            'Suggested — follows you',
-            style: theme.textTheme.labelSmall?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
-              letterSpacing: 0.5,
-            ),
-          ),
-          const SizedBox(height: 8),
-          ..._followers
-              .where((f) => !_isFollowingUser(f.id))
-              .take(5)
-              .map((f) => _buildSuggestedUserTile(f, theme)),
-        ],
-      ],
-    );
-  }
-
-  Widget _buildEmptyState(
+  Widget _buildEmptyStateInline(
     ThemeData theme,
     IconData icon,
     String title,
     String subtitle,
   ) {
-    return ListView(
-      children: [
-        const SizedBox(height: 80),
-        Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                icon,
-                size: 80,
-                color: theme.colorScheme.onSurfaceVariant.withOpacity(0.5),
-              ),
-              const SizedBox(height: 16),
-              Text(
-                title,
-                style: theme.textTheme.titleLarge?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                subtitle,
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant.withOpacity(0.7),
-                ),
-              ),
-            ],
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            icon,
+            size: 72,
+            color: theme.colorScheme.onSurfaceVariant.withOpacity(0.4),
           ),
-        ),
-      ],
+          const SizedBox(height: 16),
+          Text(
+            title,
+            style: theme.textTheme.titleLarge?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            subtitle,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant.withOpacity(0.7),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
