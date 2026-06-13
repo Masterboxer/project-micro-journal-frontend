@@ -662,7 +662,7 @@ class _FollowersPageState extends State<FollowersPage>
     final name = _currentUserDisplayName ?? 'A friend';
     return '$name wants you on Reflecto \n\n'
         'We don\'t always get the chance to talk to friends and family every day, but Reflecto makes it easy to keep up with the little moments in each other\'s lives through one daily update.\n\n'
-        'Join $name and start your streak with Reflecto';
+        'Join $name and connect with them on Reflecto';
   }
 
   Future<void> _shareInvite() async {

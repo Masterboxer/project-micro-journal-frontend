@@ -1,5 +1,11 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import 'package:share_plus/share_plus.dart';
 import 'package:project_micro_journal/authentication/pages/login_page.dart';
+import 'package:project_micro_journal/authentication/services/authentication_token_storage_service.dart';
+import 'package:project_micro_journal/environment/development.dart';
 import 'package:project_micro_journal/utils/notifications_permissions_page.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -14,11 +20,15 @@ class _OnboardingPageState extends State<OnboardingPage> {
   final PageController _pageController = PageController();
   int _currentPage = 0;
 
+  String? _currentUserDisplayName;
+  final AuthenticationTokenStorageService _authStorage =
+      AuthenticationTokenStorageService();
+
   final List<OnboardingScreen> _screens = [
     OnboardingScreen(
       icon: Icons.edit_note_rounded,
       iconColor: Colors.blue,
-      title: "Welcome to\nProject Micro Journal",
+      title: "Welcome to\nReflecto",
       body:
           "A calm space to reflect with the people who matter most. One post a day, no noise, no pressure.",
       caption: "This isn't a place to perform. It's a place to show up.",
@@ -63,6 +73,17 @@ class _OnboardingPageState extends State<OnboardingPage> {
       isNotificationScreen: true,
     ),
     OnboardingScreen(
+      icon: Icons.person_add_alt_1_rounded,
+      iconColor: Colors.blue,
+      title: "Invite friends\nand family",
+      body:
+          "Reflecto is better with people you know. Invite friends and family so you can keep up with each other's daily moments — no matter how busy life gets.",
+      caption: null,
+      primaryCTA: "Invite friends",
+      secondaryCTA: "Maybe later",
+      isInviteScreen: true,
+    ),
+    OnboardingScreen(
       icon: Icons.edit_rounded,
       iconColor: Colors.blue,
       title: "Ready to start?",
@@ -73,12 +94,78 @@ class _OnboardingPageState extends State<OnboardingPage> {
     ),
   ];
 
+  int get _notificationScreenIndex =>
+      _screens.indexWhere((s) => s.isNotificationScreen);
+
+  int get _inviteScreenIndex => _screens.indexWhere((s) => s.isInviteScreen);
+
+  @override
+  void initState() {
+    super.initState();
+    _loadCurrentUserDisplayName();
+  }
+
+  Future<void> _loadCurrentUserDisplayName() async {
+    try {
+      final String? userId = await _authStorage.getUserId();
+      if (userId == null) return;
+      final String? token = await _authStorage.getAccessToken();
+      final response = await http.get(
+        Uri.parse('${Environment.baseUrl}users/$userId'),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+      );
+      if (response.statusCode == 200 && mounted) {
+        final data = json.decode(response.body);
+        setState(() {
+          _currentUserDisplayName =
+              data['display_name'] as String? ??
+              data['username'] as String? ??
+              null;
+        });
+      }
+    } catch (_) {
+      // Non-critical; invite copy falls back to generic phrasing.
+    }
+  }
+
+  String get _inviteMessage {
+    final name = _currentUserDisplayName ?? 'A friend';
+    return '$name wants you on Reflecto \n\n'
+        'We don\'t always get the chance to talk to friends and family every day, '
+        'but Reflecto makes it easy to keep up with the little moments in each other\'s lives through one daily update.\n\n'
+        'Join $name and connect with them on Reflecto';
+  }
+
+  Future<void> _shareInvite() async {
+    await Share.share(
+      _inviteMessage,
+      subject: '${_currentUserDisplayName ?? 'A friend'} wants you on Reflecto',
+    );
+  }
+
   void _nextPage() async {
-    if (_currentPage == 4 && _screens[_currentPage].isNotificationScreen) {
+    if (_currentPage == _notificationScreenIndex) {
       await _handleNotificationPermission();
       return;
     }
 
+    if (_currentPage == _inviteScreenIndex) {
+      await _shareInvite();
+      _advancePage();
+      return;
+    }
+
+    if (_currentPage < _screens.length - 1) {
+      _advancePage();
+    } else {
+      _completeOnboarding();
+    }
+  }
+
+  void _advancePage() {
     if (_currentPage < _screens.length - 1) {
       _pageController.nextPage(
         duration: const Duration(milliseconds: 300),
@@ -91,9 +178,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
 
   Future<void> _handleNotificationPermission() async {
     if (!mounted) return;
-
     await showNotificationPermissionPage(context, onPermissionGranted: () {});
-
     if (mounted && _currentPage < _screens.length - 1) {
       _pageController.nextPage(
         duration: const Duration(milliseconds: 300),
@@ -124,6 +209,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final screen = _screens[_currentPage];
 
     return Scaffold(
       body: SafeArea(
@@ -153,7 +239,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
               ),
             ),
 
-            if (_currentPage < _screens.length - 1)
+            if (_currentPage < _screens.length - 1 && !screen.isInviteScreen)
               Align(
                 alignment: Alignment.centerRight,
                 child: Padding(
@@ -182,7 +268,11 @@ class _OnboardingPageState extends State<OnboardingPage> {
                 },
                 itemCount: _screens.length,
                 itemBuilder: (context, index) {
-                  return _buildScreenContent(_screens[index], theme);
+                  final s = _screens[index];
+                  if (s.isInviteScreen) {
+                    return _buildInviteScreenContent(theme);
+                  }
+                  return _buildScreenContent(s, theme);
                 },
               ),
             ),
@@ -202,18 +292,20 @@ class _OnboardingPageState extends State<OnboardingPage> {
                         ),
                       ),
                       child: Text(
-                        _screens[_currentPage].primaryCTA,
+                        screen.primaryCTA,
                         style: const TextStyle(fontSize: 16),
                       ),
                     ),
                   ),
-                  if (_screens[_currentPage].secondaryCTA != null) ...[
+                  if (screen.secondaryCTA != null) ...[
                     const SizedBox(height: 12),
                     SizedBox(
                       width: double.infinity,
                       child: TextButton(
                         onPressed: () {
-                          if (_currentPage < _screens.length - 1) {
+                          if (screen.isInviteScreen) {
+                            _advancePage();
+                          } else if (_currentPage < _screens.length - 1) {
                             _pageController.nextPage(
                               duration: const Duration(milliseconds: 300),
                               curve: Curves.easeInOut,
@@ -224,7 +316,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
                           padding: const EdgeInsets.symmetric(vertical: 16),
                         ),
                         child: Text(
-                          _screens[_currentPage].secondaryCTA!,
+                          screen.secondaryCTA!,
                           style: const TextStyle(fontSize: 16),
                         ),
                       ),
@@ -294,6 +386,71 @@ class _OnboardingPageState extends State<OnboardingPage> {
     );
   }
 
+  Widget _buildInviteScreenContent(ThemeData theme) {
+    final cs = theme.colorScheme;
+
+    return SingleChildScrollView(
+      physics: const NeverScrollableScrollPhysics(),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 32),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const SizedBox(height: 24),
+
+            Container(
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: Colors.blue.withOpacity(0.1),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.people_rounded,
+                size: 64,
+                color: Colors.blue,
+              ),
+            ),
+
+            const SizedBox(height: 48),
+
+            Text(
+              'Invite friends\nand family',
+              style: theme.textTheme.headlineMedium?.copyWith(
+                fontWeight: FontWeight.bold,
+                height: 1.2,
+              ),
+              textAlign: TextAlign.center,
+            ),
+
+            const SizedBox(height: 24),
+
+            Text(
+              'Reflecto is better with people you know. Invite friends and family so you can keep up with each other\'s daily moments no matter how busy life gets.',
+              style: theme.textTheme.bodyLarge?.copyWith(
+                color: cs.onSurfaceVariant,
+                height: 1.5,
+              ),
+              textAlign: TextAlign.center,
+            ),
+
+            const SizedBox(height: 16),
+
+            Text(
+              'Grow your Reflecto circle',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: cs.onSurfaceVariant.withOpacity(0.7),
+                fontStyle: FontStyle.italic,
+              ),
+              textAlign: TextAlign.center,
+            ),
+
+            const SizedBox(height: 48),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   void dispose() {
     _pageController.dispose();
@@ -310,6 +467,7 @@ class OnboardingScreen {
   final String primaryCTA;
   final String? secondaryCTA;
   final bool isNotificationScreen;
+  final bool isInviteScreen;
 
   OnboardingScreen({
     required this.icon,
@@ -320,5 +478,6 @@ class OnboardingScreen {
     required this.primaryCTA,
     this.secondaryCTA,
     this.isNotificationScreen = false,
+    this.isInviteScreen = false,
   });
 }
