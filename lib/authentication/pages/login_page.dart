@@ -1,4 +1,6 @@
+import 'dart:async';
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:project_micro_journal/authentication/pages/forgot_password_page.dart';
 import 'package:project_micro_journal/authentication/pages/google_signup_page.dart';
@@ -23,6 +25,7 @@ class LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
   late Animation<Offset> _slideAnimation;
+  late StreamSubscription<GoogleSignInAuthenticationEvent> _googleAuthSub;
 
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
@@ -40,8 +43,36 @@ class LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
       clientId:
           '1056025366422-i3u9ipg58ehsdjdn01n03qm7acv8b8kr.apps.googleusercontent.com',
       serverClientId:
-          '1056025366422-ek3d7gljf740ej7lbm3f9bu2ikdpl9at.apps.googleusercontent.com',
+          kIsWeb
+              ? null
+              : '1056025366422-ek3d7gljf740ej7lbm3f9bu2ikdpl9at.apps.googleusercontent.com',
     );
+
+    _googleAuthSub = GoogleSignIn.instance.authenticationEvents.listen(
+      (event) async {
+        if (event is GoogleSignInAuthenticationEventSignIn) {
+          final idToken = event.user.authentication.idToken;
+          if (idToken == null) return;
+          try {
+            final response = await authService.googleSignIn(idToken);
+            await _handleGoogleResponse(response);
+          } catch (err) {
+            if (mounted) {
+              snackbarService.showErrorSnackBar(context, err.toString());
+            }
+          }
+        }
+      },
+      onError: (err) {
+        if (mounted) {
+          snackbarService.showErrorSnackBar(context, err.toString());
+        }
+      },
+    );
+
+    if (kIsWeb) {
+      GoogleSignIn.instance.attemptLightweightAuthentication();
+    }
 
     _animationController = AnimationController(
       duration: Duration(milliseconds: 500),
@@ -62,6 +93,7 @@ class LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
 
   @override
   void dispose() {
+    _googleAuthSub.cancel();
     _animationController.dispose();
     _emailController.dispose();
     _passwordController.dispose();
@@ -71,9 +103,7 @@ class LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
   Future<void> _handleLogin() async {
     if (!_formKey.currentState!.validate()) return;
 
-    setState(() {
-      isLoading = true;
-    });
+    setState(() => isLoading = true);
 
     try {
       final loginResponse = await authService.login(
@@ -89,10 +119,6 @@ class LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
         displayName: loginResponse.displayName,
       );
 
-      setState(() {
-        isLoading = false;
-      });
-
       if (mounted) {
         Navigator.pushReplacement(
           context,
@@ -100,11 +126,11 @@ class LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
         );
       }
     } catch (err) {
-      snackbarService.showErrorSnackBar(context, err.toString());
-
-      setState(() {
-        isLoading = false;
-      });
+      if (mounted) {
+        snackbarService.showErrorSnackBar(context, err.toString());
+      }
+    } finally {
+      setState(() => isLoading = false);
     }
   }
 
@@ -112,56 +138,62 @@ class LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
     setState(() => isLoading = true);
 
     try {
-      final GoogleSignInAccount account =
-          await GoogleSignIn.instance.authenticate();
-
-      final String? idToken = account.authentication.idToken;
-
-      if (idToken == null) throw Exception("No ID token received");
-
-      final response = await authService.googleSignIn(idToken);
-
-      if (response['needs_onboarding'] == true) {
-        if (mounted) {
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(
-              builder:
-                  (context) => GoogleSignUpPage(
-                    googleId: response['google_id'],
-                    email: response['email'],
-                    displayName: response['display_name'],
-                    picture: response['picture'] ?? '',
-                  ),
-            ),
-          );
-        }
+      if (GoogleSignIn.instance.supportsAuthenticate()) {
+        final GoogleSignInAccount account =
+            await GoogleSignIn.instance.authenticate();
+        final String? idToken = account.authentication.idToken;
+        if (idToken == null) throw Exception('No ID token received');
+        final response = await authService.googleSignIn(idToken);
+        await _handleGoogleResponse(response);
       } else {
-        await authenticationTokenStorageService.saveTokensAndId(
-          response['access_token'],
-          response['refresh_token'],
-          response['user_id'],
-          email: response['email'],
-          displayName: response['display_name'],
-        );
-        if (mounted) {
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(builder: (context) => const MainAppTabs()),
-          );
-        }
+        GoogleSignIn.instance.attemptLightweightAuthentication();
       }
     } on GoogleSignInException catch (e) {
-      if (e.code != GoogleSignInExceptionCode.canceled) {
+      if (e.code != GoogleSignInExceptionCode.canceled && mounted) {
         snackbarService.showErrorSnackBar(
           context,
           e.description ?? 'Google sign-in failed',
         );
       }
     } catch (err) {
-      snackbarService.showErrorSnackBar(context, err.toString());
+      if (mounted) {
+        snackbarService.showErrorSnackBar(context, err.toString());
+      }
     } finally {
       setState(() => isLoading = false);
+    }
+  }
+
+  Future<void> _handleGoogleResponse(Map<String, dynamic> response) async {
+    if (response['needs_onboarding'] == true) {
+      if (mounted) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder:
+                (context) => GoogleSignUpPage(
+                  googleId: response['google_id'],
+                  email: response['email'],
+                  displayName: response['display_name'],
+                  picture: response['picture'] ?? '',
+                ),
+          ),
+        );
+      }
+    } else {
+      await authenticationTokenStorageService.saveTokensAndId(
+        response['access_token'],
+        response['refresh_token'],
+        response['user_id'],
+        email: response['email'],
+        displayName: response['display_name'],
+      );
+      if (mounted) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => const MainAppTabs()),
+        );
+      }
     }
   }
 
