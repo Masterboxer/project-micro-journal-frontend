@@ -43,7 +43,9 @@ class LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
 
     GoogleSignIn.instance.initialize(
       clientId:
-          '1056025366422-i3u9ipg58ehsdjdn01n03qm7acv8b8kr.apps.googleusercontent.com',
+          kIsWeb
+              ? '1056025366422-ek3d7gljf740ej7lbm3f9bu2ikdpl9at.apps.googleusercontent.com'
+              : '1056025366422-i3u9ipg58ehsdjdn01n03qm7acv8b8kr.apps.googleusercontent.com',
       serverClientId:
           kIsWeb
               ? null
