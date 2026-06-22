@@ -10,6 +10,8 @@ import 'package:project_micro_journal/main.dart';
 import 'package:project_micro_journal/utils/snackbar_service.dart';
 import 'signup_page.dart';
 import 'package:google_sign_in/google_sign_in.dart';
+import 'package:google_sign_in_web/google_sign_in_web.dart' as gsi_web;
+import 'package:google_sign_in_platform_interface/google_sign_in_platform_interface.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -69,10 +71,6 @@ class LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
         }
       },
     );
-
-    if (kIsWeb) {
-      GoogleSignIn.instance.attemptLightweightAuthentication();
-    }
 
     _animationController = AnimationController(
       duration: Duration(milliseconds: 500),
@@ -338,47 +336,6 @@ class LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
                             ),
                           ),
                           SizedBox(height: 16),
-                          Row(
-                            children: [
-                              Expanded(child: Divider()),
-                              Padding(
-                                padding: EdgeInsets.symmetric(horizontal: 12),
-                                child: Text(
-                                  'or',
-                                  style: TextStyle(
-                                    color: colorScheme.onSurfaceVariant,
-                                  ),
-                                ),
-                              ),
-                              Expanded(child: Divider()),
-                            ],
-                          ),
-                          SizedBox(height: 16),
-                          SizedBox(
-                            height: 50,
-                            child: OutlinedButton.icon(
-                              onPressed: isLoading ? null : _handleGoogleSignIn,
-                              icon: Image.asset(
-                                'assets/google_logo.png',
-                                height: 20,
-                                width: 20,
-                              ),
-                              label: Text(
-                                'Continue with Google',
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                              style: OutlinedButton.styleFrom(
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                side: BorderSide(color: colorScheme.outline),
-                              ),
-                            ),
-                          ),
-                          SizedBox(height: 16),
                           SizedBox(
                             height: 50,
                             child: ElevatedButton(
@@ -414,6 +371,76 @@ class LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
                             ),
                           ),
                           SizedBox(height: 24),
+
+                          Row(
+                            children: [
+                              Expanded(child: Divider()),
+                              Padding(
+                                padding: EdgeInsets.symmetric(horizontal: 12),
+                                child: Text(
+                                  'or',
+                                  style: TextStyle(
+                                    color: colorScheme.onSurfaceVariant,
+                                  ),
+                                ),
+                              ),
+                              Expanded(child: Divider()),
+                            ],
+                          ),
+                          SizedBox(height: 16),
+
+                          if (kIsWeb)
+                            Center(
+                              child: (GoogleSignInPlatform.instance
+                                      as gsi_web.GoogleSignInPlugin)
+                                  .renderButton(
+                                    configuration:
+                                        gsi_web.GSIButtonConfiguration(
+                                          theme:
+                                              gsi_web
+                                                  .GSIButtonTheme
+                                                  .filledBlack,
+                                          shape:
+                                              gsi_web
+                                                  .GSIButtonShape
+                                                  .rectangular,
+                                          size: gsi_web.GSIButtonSize.large,
+                                          type: gsi_web.GSIButtonType.standard,
+                                          logoAlignment:
+                                              gsi_web
+                                                  .GSIButtonLogoAlignment
+                                                  .center,
+                                        ),
+                                  ),
+                            )
+                          else
+                            SizedBox(
+                              height: 50,
+                              child: OutlinedButton.icon(
+                                onPressed:
+                                    isLoading ? null : _handleGoogleSignIn,
+                                icon: Image.asset(
+                                  'assets/google_logo.png',
+                                  height: 20,
+                                  width: 20,
+                                ),
+                                label: Text(
+                                  'Continue with Google',
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                                style: OutlinedButton.styleFrom(
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  side: BorderSide(color: colorScheme.outline),
+                                ),
+                              ),
+                            ),
+                          SizedBox(height: 24),
+
                           Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
