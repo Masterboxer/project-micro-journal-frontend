@@ -77,7 +77,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
       iconColor: Colors.blue,
       title: "Invite friends\nand family",
       body:
-          "Reflecto is better with people you know. Invite friends and family so you can keep up with each other's daily moments — no matter how busy life gets.",
+          "Reflecto is better with people you know. Invite friends and family so you can keep up with each other's daily moments, no matter how busy life gets.",
       caption: null,
       primaryCTA: "Invite friends",
       secondaryCTA: "Maybe later",
