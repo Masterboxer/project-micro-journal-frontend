@@ -449,10 +449,7 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
         if ((post['user_id'] as int) == userId) {
           final postDate = DateTime.parse(post['created_at']);
           final postDay = DateTime(postDate.year, postDate.month, postDate.day);
-
-          if (postDay == today) {
-            return true;
-          }
+          if (postDay == today) return true;
         }
       }
 
@@ -523,7 +520,6 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
       onDidReceiveNotificationResponse: (NotificationResponse response) async {
         if (response.payload == 'daily_reminder_check') {
           final hasPosted = await _hasPostedToday();
-
           if (!hasPosted) {
             appNavigatorKey.currentState?.push(
               MaterialPageRoute(
@@ -576,7 +572,6 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
           context,
           onPermissionGranted: () {},
         );
-
         if (granted == true) {
           await setupPushNotifications();
         }
@@ -596,7 +591,6 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
     FirebaseMessaging.onMessage.listen((RemoteMessage message) {
       _showNotification(message);
-
       if (message.data['type'] == 'post_like' ||
           message.data['type'] == 'post_comment' ||
           message.data['type'] == 'new_post') {
@@ -609,9 +603,7 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
     if (token == null) return;
 
     final String? userId = await _authStorage.getUserId();
-    if (userId == null) {
-      return;
-    }
+    if (userId == null) return;
 
     final requestBody = {'token': token, 'user_id': int.parse(userId)};
 
@@ -625,9 +617,7 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
   Future<void> _loadFeed() async {
     try {
       final String? userIdStr = await _authStorage.getUserId();
-      if (userIdStr == null) {
-        throw Exception('User ID not found');
-      }
+      if (userIdStr == null) throw Exception('User ID not found');
 
       final int userId = int.parse(userIdStr);
 
@@ -781,9 +771,9 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
             SnackBar(
               content: Row(
                 children: [
-                  Icon(Icons.check_circle, color: Colors.white),
-                  SizedBox(width: 8),
-                  Text('Post created successfully! 🔥'),
+                  const Icon(Icons.check_circle, color: Colors.white),
+                  const SizedBox(width: 8),
+                  const Text('Post created successfully! 🔥'),
                 ],
               ),
               duration: const Duration(seconds: 2),
@@ -798,13 +788,11 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
           if (!hasSeenInvitePopup && mounted) {
             await prefs.setBool('has_seen_invite_popup', true);
-
             await Future.delayed(const Duration(milliseconds: 600));
 
             if (mounted) {
               final displayName =
                   await _authStorage.getDisplayName() ?? 'Someone';
-
               await FirstPostInvitePopup.show(
                 context,
                 postText: newPostText,
@@ -816,7 +804,7 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text(
+              content: const Text(
                 'Post created but not visible yet. Pull to refresh.',
               ),
               duration: const Duration(seconds: 3),
@@ -932,11 +920,11 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
         padding: const EdgeInsets.all(16),
         children: [
           _buildReflectoScoreSection(),
-          const SizedBox(height: 24),
+          const SizedBox(height: 16),
           _buildVerificationBanner(),
-          const SizedBox(height: 12),
 
           if (_userPosts.isNotEmpty) ...[
+            const SizedBox(height: 8),
             _CollapsibleUserPosts(
               posts: _userPosts,
               buildCard: (post) => _buildUserPostCard(theme, post),
@@ -963,6 +951,371 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
                 .toList(),
           ],
         ],
+      ),
+    );
+  }
+
+  Duration _timeUntilMidnight() {
+    final now = DateTime.now();
+    final midnight = DateTime(now.year, now.month, now.day + 1, 0, 0, 0);
+    return midnight.difference(now);
+  }
+
+  String _formatTimeUntilMidnight() {
+    final d = _timeUntilMidnight();
+    final h = d.inHours;
+    final m = d.inMinutes.remainder(60);
+    if (h > 0) return '${h}h ${m}m';
+    return '${m}m';
+  }
+
+  void _showScoringCriteriaSheet() {
+    final theme = Theme.of(context);
+    final score = _reflectoScore?.score ?? 0;
+
+    final String tierLabel;
+    final Color tierColor;
+    final IconData tierIcon;
+
+    if (score >= 100) {
+      tierLabel = 'Legend';
+      tierColor = const Color(0xFFFFD700);
+      tierIcon = Icons.auto_awesome;
+    } else if (score >= 50) {
+      tierLabel = 'Pro';
+      tierColor = const Color(0xFF9C27B0);
+      tierIcon = Icons.workspace_premium;
+    } else if (score >= 20) {
+      tierLabel = 'Rising';
+      tierColor = const Color(0xFF2196F3);
+      tierIcon = Icons.trending_up;
+    } else {
+      tierLabel = 'Starter';
+      tierColor = theme.colorScheme.primary;
+      tierIcon = Icons.star_outline;
+    }
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        return Container(
+          decoration: BoxDecoration(
+            color: theme.colorScheme.surface,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          padding: const EdgeInsets.fromLTRB(24, 12, 24, 32),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 36,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.outlineVariant,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 20),
+
+              Row(
+                children: [
+                  Container(
+                    width: 44,
+                    height: 44,
+                    decoration: BoxDecoration(
+                      color: tierColor.withOpacity(0.12),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(tierIcon, color: tierColor, size: 24),
+                  ),
+                  const SizedBox(width: 14),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'How your score is calculated',
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      Text(
+                        'You\'re $tierLabel tier · $score pts',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: tierColor,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+
+              const SizedBox(height: 24),
+
+              _ScoreRow(
+                emoji: '✍️',
+                label: 'Create a post',
+                points: '+5 pts',
+                color: Colors.green,
+                theme: theme,
+              ),
+              const SizedBox(height: 12),
+              _ScoreRow(
+                emoji: '💬',
+                label: 'Leave a comment',
+                points: '+2 pts',
+                color: Colors.blue,
+                theme: theme,
+              ),
+              const SizedBox(height: 12),
+              _ScoreRow(
+                emoji: '❤️',
+                label: 'React to a post',
+                points: '+1 pt',
+                color: Colors.red,
+                theme: theme,
+              ),
+
+              const SizedBox(height: 24),
+              Divider(color: theme.colorScheme.outlineVariant),
+              const SizedBox(height: 16),
+
+              Text(
+                'Tiers',
+                style: theme.textTheme.labelLarge?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: 12),
+              _TierRow(
+                icon: Icons.star_outline,
+                label: 'Starter',
+                range: '0–19 pts',
+                color: theme.colorScheme.primary,
+                theme: theme,
+              ),
+              const SizedBox(height: 8),
+              _TierRow(
+                icon: Icons.trending_up,
+                label: 'Rising',
+                range: '20–49 pts',
+                color: const Color(0xFF2196F3),
+                theme: theme,
+              ),
+              const SizedBox(height: 8),
+              _TierRow(
+                icon: Icons.workspace_premium,
+                label: 'Pro',
+                range: '50–99 pts',
+                color: const Color(0xFF9C27B0),
+                theme: theme,
+              ),
+              const SizedBox(height: 8),
+              _TierRow(
+                icon: Icons.auto_awesome,
+                label: 'Legend',
+                range: '100+ pts',
+                color: const Color(0xFFFFD700),
+                theme: theme,
+              ),
+
+              const SizedBox(height: 24),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildReflectoScoreSection() {
+    final theme = Theme.of(context);
+    final score = _reflectoScore?.score ?? 0;
+    final hasPostedToday = _userPosts.isNotEmpty;
+    final timeLeft = _formatTimeUntilMidnight();
+    final hoursLeft = _timeUntilMidnight().inHours;
+
+    final String tierLabel;
+    final Color tierColor;
+    final IconData tierIcon;
+
+    if (score >= 100) {
+      tierLabel = 'Legend';
+      tierColor = const Color(0xFFFFD700);
+      tierIcon = Icons.auto_awesome;
+    } else if (score >= 50) {
+      tierLabel = 'Pro';
+      tierColor = const Color(0xFF9C27B0);
+      tierIcon = Icons.workspace_premium;
+    } else if (score >= 20) {
+      tierLabel = 'Rising';
+      tierColor = const Color(0xFF2196F3);
+      tierIcon = Icons.trending_up;
+    } else {
+      tierLabel = 'Starter';
+      tierColor = theme.colorScheme.primary;
+      tierIcon = Icons.star_outline;
+    }
+
+    final Color freshnessBg;
+    final Color freshnessText;
+    final IconData freshnessIcon;
+    final String freshnessLabel;
+
+    if (hasPostedToday) {
+      freshnessBg = Colors.green.withOpacity(0.12);
+      freshnessText = Colors.green.shade700;
+      freshnessIcon = Icons.check_circle_outline_rounded;
+      freshnessLabel = 'Score refreshed today ✓';
+    } else if (hoursLeft <= 3) {
+      freshnessBg = Colors.red.withOpacity(0.10);
+      freshnessText = Colors.red.shade700;
+      freshnessIcon = Icons.timer_outlined;
+      freshnessLabel = 'Post soon — $timeLeft left today';
+    } else {
+      freshnessBg = Colors.orange.withOpacity(0.10);
+      freshnessText = Colors.orange.shade800;
+      freshnessIcon = Icons.hourglass_bottom_rounded;
+      freshnessLabel = '$timeLeft left to post today';
+    }
+
+    return GestureDetector(
+      onTap: _showScoringCriteriaSheet,
+      child: Card(
+        elevation: 0,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: BorderSide(color: tierColor.withOpacity(0.25), width: 1.5),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Container(
+                    width: 48,
+                    height: 48,
+                    decoration: BoxDecoration(
+                      gradient: RadialGradient(
+                        colors: [
+                          tierColor.withOpacity(0.25),
+                          tierColor.withOpacity(0.06),
+                        ],
+                      ),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(tierIcon, color: tierColor, size: 26),
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Reflecto Score',
+                          style: theme.textTheme.labelMedium?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant,
+                            letterSpacing: 0.4,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.baseline,
+                          textBaseline: TextBaseline.alphabetic,
+                          children: [
+                            Text(
+                              '$score',
+                              style: theme.textTheme.headlineMedium?.copyWith(
+                                fontWeight: FontWeight.w800,
+                                color: tierColor,
+                                height: 1,
+                              ),
+                            ),
+                            const SizedBox(width: 6),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 2,
+                              ),
+                              decoration: BoxDecoration(
+                                color: tierColor.withOpacity(0.12),
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              child: Text(
+                                tierLabel,
+                                style: theme.textTheme.labelSmall?.copyWith(
+                                  color: tierColor,
+                                  fontWeight: FontWeight.w700,
+                                  letterSpacing: 0.5,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                  Column(
+                    children: [
+                      Icon(
+                        Icons.info_outline_rounded,
+                        size: 18,
+                        color: theme.colorScheme.onSurfaceVariant.withOpacity(
+                          0.5,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        'How it works',
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant.withOpacity(
+                            0.5,
+                          ),
+                          fontSize: 9,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+
+              const SizedBox(height: 14),
+
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 7,
+                ),
+                decoration: BoxDecoration(
+                  color: freshnessBg,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(freshnessIcon, size: 14, color: freshnessText),
+                    const SizedBox(width: 6),
+                    Text(
+                      freshnessLabel,
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: freshnessText,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -1025,9 +1378,7 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
                 ),
               ],
             ),
-
             const SizedBox(height: 12),
-
             Row(
               children: [
                 _buildBadge(
@@ -1038,14 +1389,10 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
                 ),
               ],
             ),
-
             const SizedBox(height: 16),
-
             Text(post['text'], style: theme.textTheme.bodyLarge),
-
             const SizedBox(height: 12),
             const Divider(),
-
             Row(
               children: [
                 InkWell(
@@ -1233,7 +1580,7 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
                         if (userReaction != null)
                           Text(
                             _reactionEmojis[userReaction]!,
-                            style: TextStyle(fontSize: 20),
+                            style: const TextStyle(fontSize: 20),
                           )
                         else
                           Icon(
@@ -1298,7 +1645,6 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
       if (response.statusCode == 200) {
         final List<dynamic> reactions = json.decode(response.body);
-
         if (!mounted) return;
 
         showDialog(
@@ -1320,7 +1666,7 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
                                 leading: Text(
                                   _reactionEmojis[reaction['reaction_type']] ??
                                       '❤️',
-                                  style: TextStyle(fontSize: 24),
+                                  style: const TextStyle(fontSize: 24),
                                 ),
                                 title: Text(
                                   reaction['display_name'] ?? 'Unknown',
@@ -1421,7 +1767,7 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
                               ),
                               child: Text(
                                 entry.value,
-                                style: TextStyle(fontSize: 32),
+                                style: const TextStyle(fontSize: 32),
                               ),
                             ),
                           );
@@ -1455,130 +1801,17 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
     }
   }
 
-  Widget _buildReflectoScoreSection() {
-    final theme = Theme.of(context);
-    final score = _reflectoScore?.score ?? 0;
-
-    // Tier logic
-    final String tierLabel;
-    final Color tierColor;
-    final IconData tierIcon;
-
-    if (score >= 100) {
-      tierLabel = 'Legend';
-      tierColor = const Color(0xFFFFD700);
-      tierIcon = Icons.auto_awesome;
-    } else if (score >= 50) {
-      tierLabel = 'Pro';
-      tierColor = const Color(0xFF9C27B0);
-      tierIcon = Icons.workspace_premium;
-    } else if (score >= 20) {
-      tierLabel = 'Rising';
-      tierColor = const Color(0xFF2196F3);
-      tierIcon = Icons.trending_up;
-    } else {
-      tierLabel = 'Starter';
-      tierColor = theme.colorScheme.primary;
-      tierIcon = Icons.star_outline;
-    }
-
-    return Card(
-      margin: const EdgeInsets.all(0),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-        child: Row(
-          children: [
-            Container(
-              width: 52,
-              height: 52,
-              decoration: BoxDecoration(
-                color: tierColor.withOpacity(0.12),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(tierIcon, color: tierColor, size: 28),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Reflecto Score',
-                    style: theme.textTheme.labelMedium?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
-                      letterSpacing: 0.5,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.baseline,
-                    textBaseline: TextBaseline.alphabetic,
-                    children: [
-                      Text(
-                        '$score',
-                        style: theme.textTheme.headlineMedium?.copyWith(
-                          fontWeight: FontWeight.bold,
-                          color: tierColor,
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        tierLabel,
-                        style: theme.textTheme.labelLarge?.copyWith(
-                          color: tierColor.withOpacity(0.8),
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                _buildMiniScoreBadge('+5', 'post', theme),
-                const SizedBox(height: 4),
-                _buildMiniScoreBadge('+2', 'comment', theme),
-                const SizedBox(height: 4),
-                _buildMiniScoreBadge('+1', 'react', theme),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildMiniScoreBadge(String points, String label, ThemeData theme) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Text(
-          points,
-          style: theme.textTheme.labelSmall?.copyWith(
-            fontWeight: FontWeight.bold,
-            color: Colors.green,
-          ),
-        ),
-        const SizedBox(width: 3),
-        Text(
-          label,
-          style: theme.textTheme.labelSmall?.copyWith(
-            color: theme.colorScheme.onSurfaceVariant,
-          ),
-        ),
-      ],
-    );
-  }
-
   Widget _buildEmptyState(ThemeData theme) {
-    return Stack(
-      children: [
-        Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.center,
+    return RefreshIndicator(
+      onRefresh: _refreshPosts,
+      child: ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          _buildReflectoScoreSection(),
+          const SizedBox(height: 16),
+          _buildVerificationBanner(),
+          const SizedBox(height: 48),
+          Column(
             children: [
               Icon(
                 Icons.edit_note_outlined,
@@ -1612,14 +1845,8 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
               ),
             ],
           ),
-        ),
-        Positioned(
-          top: 20,
-          left: 0,
-          right: 0,
-          child: _buildVerificationBanner(),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
@@ -1708,6 +1935,104 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
     }
 
     _lastLifecycleState = state;
+  }
+}
+
+class _ScoreRow extends StatelessWidget {
+  final String emoji;
+  final String label;
+  final String points;
+  final Color color;
+  final ThemeData theme;
+
+  const _ScoreRow({
+    required this.emoji,
+    required this.label,
+    required this.points,
+    required this.color,
+    required this.theme,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Container(
+          width: 40,
+          height: 40,
+          decoration: BoxDecoration(
+            color: color.withOpacity(0.10),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Center(
+            child: Text(emoji, style: const TextStyle(fontSize: 20)),
+          ),
+        ),
+        const SizedBox(width: 14),
+        Expanded(
+          child: Text(
+            label,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+          decoration: BoxDecoration(
+            color: color.withOpacity(0.12),
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Text(
+            points,
+            style: theme.textTheme.labelMedium?.copyWith(
+              color: color,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _TierRow extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final String range;
+  final Color color;
+  final ThemeData theme;
+
+  const _TierRow({
+    required this.icon,
+    required this.label,
+    required this.range,
+    required this.color,
+    required this.theme,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Icon(icon, size: 18, color: color),
+        const SizedBox(width: 10),
+        Text(
+          label,
+          style: theme.textTheme.bodyMedium?.copyWith(
+            fontWeight: FontWeight.w600,
+            color: color,
+          ),
+        ),
+        const Spacer(),
+        Text(
+          range,
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
+        ),
+      ],
+    );
   }
 }
 
@@ -1995,10 +2320,7 @@ class _CommentsBottomSheetState extends State<CommentsBottomSheet> {
         _commentController.clear();
         await _loadComments();
         widget.onCommentAdded();
-
-        if (mounted) {
-          FocusScope.of(context).unfocus();
-        }
+        if (mounted) FocusScope.of(context).unfocus();
       }
     } catch (e) {
       if (mounted) {
@@ -2007,9 +2329,7 @@ class _CommentsBottomSheetState extends State<CommentsBottomSheet> {
         ).showSnackBar(SnackBar(content: Text('Error posting comment: $e')));
       }
     } finally {
-      if (mounted) {
-        setState(() => _isSending = false);
-      }
+      if (mounted) setState(() => _isSending = false);
     }
   }
 
@@ -2138,7 +2458,7 @@ class _CommentsBottomSheetState extends State<CommentsBottomSheet> {
                                     ),
                                     child: Row(
                                       children: [
-                                        Icon(
+                                        const Icon(
                                           Icons.favorite,
                                           size: 16,
                                           color: Colors.red,
@@ -2263,17 +2583,11 @@ class _CommentsBottomSheetState extends State<CommentsBottomSheet> {
     final DateTime now = DateTime.now();
     final Duration difference = now.difference(dateTime);
 
-    if (difference.inMinutes < 1) {
-      return 'Just now';
-    } else if (difference.inHours < 1) {
-      return '${difference.inMinutes}m ago';
-    } else if (difference.inDays < 1) {
-      return '${difference.inHours}h ago';
-    } else if (difference.inDays < 7) {
-      return '${difference.inDays}d ago';
-    } else {
-      return '${dateTime.day}/${dateTime.month}/${dateTime.year}';
-    }
+    if (difference.inMinutes < 1) return 'Just now';
+    if (difference.inHours < 1) return '${difference.inMinutes}m ago';
+    if (difference.inDays < 1) return '${difference.inHours}h ago';
+    if (difference.inDays < 7) return '${difference.inDays}d ago';
+    return '${dateTime.day}/${dateTime.month}/${dateTime.year}';
   }
 
   @override
