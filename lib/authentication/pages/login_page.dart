@@ -10,8 +10,8 @@ import 'package:project_micro_journal/main.dart';
 import 'package:project_micro_journal/utils/snackbar_service.dart';
 import 'signup_page.dart';
 import 'package:google_sign_in/google_sign_in.dart';
-import 'package:google_sign_in_web/google_sign_in_web.dart' as gsi_web;
-import 'package:google_sign_in_platform_interface/google_sign_in_platform_interface.dart';
+import 'package:project_micro_journal/authentication/services/google_sign_in_button_stub.dart'
+    if (dart.library.html) 'package:project_micro_journal/authentication/services/google_sign_in_button_web.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -392,29 +392,7 @@ class LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
                           SizedBox(height: 16),
 
                           if (kIsWeb)
-                            Center(
-                              child: (GoogleSignInPlatform.instance
-                                      as gsi_web.GoogleSignInPlugin)
-                                  .renderButton(
-                                    configuration:
-                                        gsi_web.GSIButtonConfiguration(
-                                          theme:
-                                              gsi_web
-                                                  .GSIButtonTheme
-                                                  .filledBlack,
-                                          shape:
-                                              gsi_web
-                                                  .GSIButtonShape
-                                                  .rectangular,
-                                          size: gsi_web.GSIButtonSize.large,
-                                          type: gsi_web.GSIButtonType.standard,
-                                          logoAlignment:
-                                              gsi_web
-                                                  .GSIButtonLogoAlignment
-                                                  .center,
-                                        ),
-                                  ),
-                            )
+                            Center(child: buildGoogleSignInButton())
                           else
                             SizedBox(
                               height: 50,
