@@ -6,7 +6,7 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:http/http.dart' as http;
 import 'package:project_micro_journal/authentication/services/authentication_token_storage_service.dart';
 import 'package:project_micro_journal/environment/development.dart';
-import 'package:project_micro_journal/home/models/streak.dart';
+import 'package:project_micro_journal/home/models/reflecto_score.dart';
 import 'package:project_micro_journal/posts/pages/create_post_page.dart';
 import 'package:project_micro_journal/posts/pages/first_post_invite_popup.dart';
 import 'package:project_micro_journal/profile/pages/profile_page.dart';
@@ -38,7 +38,7 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
   List<Map<String, dynamic>> _userPosts = [];
   List<Map<String, dynamic>> _friendsPosts = [];
-  PersonalStreak? _streak;
+  ReflectoScore? _reflectoScore;
   bool _isLoading = true;
   String? _error;
   int? _currentUserId;
@@ -150,7 +150,7 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
       await _templateService.fetchTemplatesFromBackend();
       await Future.wait([
         _loadFeed(),
-        _loadStreak(),
+        _loadReflectoScore(),
         _loadUserVerificationStatus(),
       ]);
       if (_showVerificationBanner) {
@@ -683,12 +683,12 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
     }
   }
 
-  Future<void> _loadStreak() async {
+  Future<void> _loadReflectoScore() async {
     if (_currentUserId == null) return;
 
     final String? token = await _authStorage.getAccessToken();
     final response = await http.get(
-      Uri.parse('$environmentVariable/users/$_currentUserId/streak'),
+      Uri.parse('${environmentVariable}users/$_currentUserId/reflecto-score'),
       headers: {
         'Authorization': 'Bearer $token',
         'Content-Type': 'application/json',
@@ -698,9 +698,9 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
     if (response.statusCode == 200) {
       final data = json.decode(response.body);
       if (data['exists'] == false) {
-        setState(() => _streak = null);
+        setState(() => _reflectoScore = null);
       } else {
-        setState(() => _streak = PersonalStreak.fromJson(data));
+        setState(() => _reflectoScore = ReflectoScore.fromJson(data));
       }
     }
   }
@@ -764,7 +764,7 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
     try {
       if (shouldReloadStreak) {
-        await Future.wait([_loadFeed(), _loadStreak()]);
+        await Future.wait([_loadFeed(), _loadReflectoScore()]);
       } else {
         await _loadFeed();
       }
@@ -826,7 +826,7 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
                 label: 'Refresh',
                 textColor: Colors.white,
                 onPressed: () async {
-                  await Future.wait([_loadFeed(), _loadStreak()]);
+                  await Future.wait([_loadFeed(), _loadReflectoScore()]);
                 },
               ),
             ),
@@ -844,7 +844,7 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
               label: 'Retry',
               textColor: Colors.white,
               onPressed: () async {
-                await Future.wait([_loadFeed(), _loadStreak()]);
+                await Future.wait([_loadFeed(), _loadReflectoScore()]);
               },
             ),
           ),
@@ -856,7 +856,7 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
   Future<void> _refreshPosts() async {
     _error = null;
     try {
-      await Future.wait([_loadFeed(), _loadStreak()]);
+      await Future.wait([_loadFeed(), _loadReflectoScore()]);
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -931,7 +931,7 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
       child: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          _buildStreakSection(),
+          _buildReflectoScoreSection(),
           const SizedBox(height: 24),
           _buildVerificationBanner(),
           const SizedBox(height: 12),
@@ -1455,20 +1455,47 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
     }
   }
 
-  Widget _buildStreakSection() {
+  Widget _buildReflectoScoreSection() {
+    final theme = Theme.of(context);
+    final score = _reflectoScore?.score ?? 0;
+
+    // Tier logic
+    final String tierLabel;
+    final Color tierColor;
+    final IconData tierIcon;
+
+    if (score >= 100) {
+      tierLabel = 'Legend';
+      tierColor = const Color(0xFFFFD700);
+      tierIcon = Icons.auto_awesome;
+    } else if (score >= 50) {
+      tierLabel = 'Pro';
+      tierColor = const Color(0xFF9C27B0);
+      tierIcon = Icons.workspace_premium;
+    } else if (score >= 20) {
+      tierLabel = 'Rising';
+      tierColor = const Color(0xFF2196F3);
+      tierIcon = Icons.trending_up;
+    } else {
+      tierLabel = 'Starter';
+      tierColor = theme.colorScheme.primary;
+      tierIcon = Icons.star_outline;
+    }
+
     return Card(
-      margin: const EdgeInsets.all(16),
+      margin: const EdgeInsets.all(0),
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
         child: Row(
           children: [
-            Icon(
-              Icons.local_fire_department,
-              color:
-                  _streak != null && _streak!.streakCount > 0
-                      ? Colors.orange
-                      : Colors.grey,
-              size: 48,
+            Container(
+              width: 52,
+              height: 52,
+              decoration: BoxDecoration(
+                color: tierColor.withOpacity(0.12),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(tierIcon, color: tierColor, size: 28),
             ),
             const SizedBox(width: 16),
             Expanded(
@@ -1476,22 +1503,72 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    '${_streak?.streakCount ?? 0} Day Streak',
-                    style: const TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
+                    'Reflecto Score',
+                    style: theme.textTheme.labelMedium?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                      letterSpacing: 0.5,
                     ),
                   ),
-                  Text(
-                    'Longest: ${_streak?.longestStreak ?? 0} days',
-                    style: TextStyle(color: Colors.grey[600]),
+                  const SizedBox(height: 2),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.baseline,
+                    textBaseline: TextBaseline.alphabetic,
+                    children: [
+                      Text(
+                        '$score',
+                        style: theme.textTheme.headlineMedium?.copyWith(
+                          fontWeight: FontWeight.bold,
+                          color: tierColor,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        tierLabel,
+                        style: theme.textTheme.labelLarge?.copyWith(
+                          color: tierColor.withOpacity(0.8),
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
             ),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                _buildMiniScoreBadge('+5', 'post', theme),
+                const SizedBox(height: 4),
+                _buildMiniScoreBadge('+2', 'comment', theme),
+                const SizedBox(height: 4),
+                _buildMiniScoreBadge('+1', 'react', theme),
+              ],
+            ),
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildMiniScoreBadge(String points, String label, ThemeData theme) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          points,
+          style: theme.textTheme.labelSmall?.copyWith(
+            fontWeight: FontWeight.bold,
+            color: Colors.green,
+          ),
+        ),
+        const SizedBox(width: 3),
+        Text(
+          label,
+          style: theme.textTheme.labelSmall?.copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
+        ),
+      ],
     );
   }
 
