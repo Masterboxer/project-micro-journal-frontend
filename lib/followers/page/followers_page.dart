@@ -48,6 +48,7 @@ class _FollowersPageState extends State<FollowersPage>
   bool _followersOffline = false;
   bool _followingOffline = false;
   bool _pendingOffline = false;
+  List<Follower> _sentRequests = [];
 
   bool _looksLikeNetworkError(dynamic error) {
     final msg = error.toString().toLowerCase();
@@ -141,11 +142,44 @@ class _FollowersPageState extends State<FollowersPage>
     }
   }
 
+  bool _hasSentRequestTo(int userId) {
+    return _sentRequests.any((u) => u.id == userId);
+  }
+
+  Future<void> _loadSentRequests() async {
+    try {
+      final sent = await _followersService.getSentFollowRequests();
+      if (mounted) {
+        setState(() => _sentRequests = sent);
+      }
+    } catch (_) {
+      // Non-critical; fail silently.
+    }
+  }
+
+  Future<List<Follower>> getSentFollowRequests() async {
+    final String? userId = await _authStorage.getUserId();
+    final String? token = await _authStorage.getAccessToken();
+    final response = await http.get(
+      Uri.parse('${Environment.baseUrl}users/$userId/sent-requests'),
+      headers: {
+        'Authorization': 'Bearer $token',
+        'Content-Type': 'application/json',
+      },
+    );
+    if (response.statusCode == 200) {
+      final List<dynamic> data = json.decode(response.body);
+      return data.map((e) => Follower.fromJson(e)).toList();
+    }
+    throw Exception('Failed to load sent requests');
+  }
+
   Future<void> _loadAllData() async {
     await Future.wait([
       _loadFollowers(),
       _loadFollowing(),
       _loadPendingRequests(),
+      _loadSentRequests(),
       _loadStats(),
     ]);
 
@@ -1182,6 +1216,7 @@ class _FollowersPageState extends State<FollowersPage>
                   final follower =
                       _followers[_showInviteBanner ? index - 1 : index];
                   final isFollowingBack = _isFollowingUser(follower.id);
+                  final hasPendingOut = _hasSentRequestTo(follower.id);
 
                   return Padding(
                     padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
@@ -1224,10 +1259,11 @@ class _FollowersPageState extends State<FollowersPage>
                           '@${follower.username}',
                           overflow: TextOverflow.ellipsis,
                         ),
+
                         trailing: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            if (!isFollowingBack)
+                            if (!isFollowingBack && !hasPendingOut)
                               FilledButton.icon(
                                 onPressed:
                                     () => _followBackUser(
@@ -1242,6 +1278,24 @@ class _FollowersPageState extends State<FollowersPage>
                                 icon: const Icon(Icons.person_add, size: 16),
                                 label: const Text(
                                   'Follow Back',
+                                  style: TextStyle(fontSize: 12),
+                                ),
+                              )
+                            else if (hasPendingOut)
+                              OutlinedButton.icon(
+                                onPressed:
+                                    () => _cancelFollowRequest(
+                                      follower.id,
+                                      follower.displayName,
+                                    ),
+                                style: OutlinedButton.styleFrom(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                  ),
+                                ),
+                                icon: const Icon(Icons.schedule, size: 14),
+                                label: const Text(
+                                  'Pending',
                                   style: TextStyle(fontSize: 12),
                                 ),
                               )
