@@ -26,7 +26,7 @@ class _FollowersPageState extends State<FollowersPage>
   final FocusNode _searchFocusNode = FocusNode();
   final AuthenticationTokenStorageService _authStorage =
       AuthenticationTokenStorageService();
-  Map<int, int> _userStreaks = {};
+  Map<int, int> _userReflectoScores = {};
 
   late TabController _tabController;
 
@@ -189,7 +189,7 @@ class _FollowersPageState extends State<FollowersPage>
           ..._following.map((f) => f.id),
           ..._pendingRequests.map((f) => f.id),
         }.toList();
-    await _loadStreaksForUsers(allUserIds);
+    await _loadReflectoScoresForUsers(allUserIds);
   }
 
   Future<void> _loadFollowers() async {
@@ -282,14 +282,14 @@ class _FollowersPageState extends State<FollowersPage>
     }
   }
 
-  Future<void> _loadStreaksForUsers(List<int> userIds) async {
+  Future<void> _loadReflectoScoresForUsers(List<int> userIds) async {
     if (userIds.isEmpty) return;
     final String? token = await _authStorage.getAccessToken();
     final results = await Future.wait(
       userIds.map((id) async {
         try {
           final response = await http.get(
-            Uri.parse('${Environment.baseUrl}users/$id/streak'),
+            Uri.parse('${Environment.baseUrl}users/$id/reflecto-score'),
             headers: {
               'Authorization': 'Bearer $token',
               'Content-Type': 'application/json',
@@ -298,7 +298,7 @@ class _FollowersPageState extends State<FollowersPage>
           if (response.statusCode == 200) {
             final data = json.decode(response.body);
             if (data['exists'] != false) {
-              return MapEntry(id, (data['streak_count'] as int? ?? 0));
+              return MapEntry(id, (data['score'] as int? ?? 0));
             }
           }
         } catch (_) {}
@@ -307,7 +307,7 @@ class _FollowersPageState extends State<FollowersPage>
     );
     if (mounted) {
       setState(() {
-        _userStreaks = Map.fromEntries(results);
+        _userReflectoScores = Map.fromEntries(results);
       });
     }
   }
@@ -993,21 +993,21 @@ class _FollowersPageState extends State<FollowersPage>
     );
   }
 
-  Widget _buildStreakBadge(int userId) {
-    final streak = _userStreaks[userId] ?? 0;
-    if (streak == 0) return const SizedBox.shrink();
+  Widget _buildReflectoScoreBadge(int userId) {
+    final score = _userReflectoScores[userId] ?? 0;
+    if (score == 0) return const SizedBox.shrink();
     return Row(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        const Icon(Icons.local_fire_department, size: 18, color: Colors.orange),
+        const Icon(Icons.auto_awesome, size: 16, color: Colors.amber),
         const SizedBox(width: 2),
         Text(
-          '$streak',
+          '$score',
           style: const TextStyle(
             fontSize: 14,
             fontWeight: FontWeight.w600,
-            color: Colors.orange,
+            color: Colors.amber,
           ),
         ),
       ],
@@ -1252,7 +1252,7 @@ class _FollowersPageState extends State<FollowersPage>
                               ),
                             ),
                             const SizedBox(width: 8),
-                            _buildStreakBadge(follower.id),
+                            _buildReflectoScoreBadge(follower.id),
                           ],
                         ),
                         subtitle: Text(
@@ -1394,7 +1394,7 @@ class _FollowersPageState extends State<FollowersPage>
                               ),
                             ),
                             const SizedBox(width: 8),
-                            _buildStreakBadge(user.id),
+                            _buildReflectoScoreBadge(user.id),
                           ],
                         ),
                         subtitle: Text(
@@ -1490,7 +1490,7 @@ class _FollowersPageState extends State<FollowersPage>
                               ),
                             ),
                             const SizedBox(width: 8),
-                            _buildStreakBadge(request.id),
+                            _buildReflectoScoreBadge(request.id),
                           ],
                         ),
                         subtitle: Text(

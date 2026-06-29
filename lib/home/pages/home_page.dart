@@ -910,7 +910,6 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
       );
     }
 
-    // ── EMPTY STATE: still show score + verification banner ──
     if (_userPosts.isEmpty && _friendsPosts.isEmpty) {
       return _buildEmptyState(theme);
     }
@@ -956,12 +955,6 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
     );
   }
 
-  // ─────────────────────────────────────────────
-  // REFLECTO SCORE SECTION (redesigned)
-  // ─────────────────────────────────────────────
-
-  /// Returns how much time remains today to post (and keep the score fresh).
-  /// Score "freshness" resets at midnight local time.
   Duration _timeUntilMidnight() {
     final now = DateTime.now();
     final midnight = DateTime(now.year, now.month, now.day + 1, 0, 0, 0);
@@ -1017,7 +1010,6 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Drag handle
               Center(
                 child: Container(
                   width: 36,
@@ -1030,7 +1022,6 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
               ),
               const SizedBox(height: 20),
 
-              // Header
               Row(
                 children: [
                   Container(
@@ -1066,7 +1057,6 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
               const SizedBox(height: 24),
 
-              // Scoring rows
               _ScoreRow(
                 emoji: '✍️',
                 label: 'Create a post',
@@ -1095,7 +1085,6 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
               Divider(color: theme.colorScheme.outlineVariant),
               const SizedBox(height: 16),
 
-              // Tier progression
               Text(
                 'Tiers',
                 style: theme.textTheme.labelLarge?.copyWith(
@@ -1173,7 +1162,6 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
       tierIcon = Icons.star_outline;
     }
 
-    // "Score refresh" urgency colour
     final Color freshnessBg;
     final Color freshnessText;
     final IconData freshnessIcon;
@@ -1183,7 +1171,7 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
       freshnessBg = Colors.green.withOpacity(0.12);
       freshnessText = Colors.green.shade700;
       freshnessIcon = Icons.check_circle_outline_rounded;
-      freshnessLabel = 'Score refreshed today ✓';
+      freshnessLabel = 'Post Created Today ✓';
     } else if (hoursLeft <= 3) {
       freshnessBg = Colors.red.withOpacity(0.10);
       freshnessText = Colors.red.shade700;
@@ -1209,7 +1197,6 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Top row: icon + score + tier label + ℹ icon
               Row(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
@@ -1276,7 +1263,6 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
                       ],
                     ),
                   ),
-                  // ℹ icon only — no label
                   Icon(
                     Icons.info_outline_rounded,
                     size: 20,
@@ -1287,7 +1273,6 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
               const SizedBox(height: 14),
 
-              // Score freshness pill — full width
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.symmetric(
@@ -1806,7 +1791,6 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
       child: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          // Score still shows even with no posts
           _buildReflectoScoreSection(),
           const SizedBox(height: 16),
           _buildVerificationBanner(),
@@ -1938,10 +1922,6 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
   }
 }
 
-// ─────────────────────────────────────────────
-// Helper widgets for the scoring criteria sheet
-// ─────────────────────────────────────────────
-
 class _ScoreRow extends StatelessWidget {
   final String emoji;
   final String label;
@@ -2039,10 +2019,6 @@ class _TierRow extends StatelessWidget {
     );
   }
 }
-
-// ─────────────────────────────────────────────
-// The rest of the file is unchanged
-// ─────────────────────────────────────────────
 
 class CommentsBottomSheet extends StatefulWidget {
   final int postId;
