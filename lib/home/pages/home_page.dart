@@ -18,6 +18,14 @@ import 'package:project_micro_journal/utils/notifications_permissions_page.dart'
 import 'package:project_micro_journal/utils/rate_app_popup.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../comments/comments_bottom_sheet.dart';
+import '../dialogs/edit_post_dialog.dart';
+import '../widgets/collapsible_user_posts.dart';
+import '../widgets/post_card.dart';
+import '../widgets/reaction_picker.dart';
+import '../widgets/reflecto_score_section.dart';
+import '../widgets/verification_banner.dart';
+
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
 
@@ -130,12 +138,6 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
     });
   }
 
-  String _formatCooldown(Duration d) {
-    final m = d.inMinutes.remainder(60).toString().padLeft(2, '0');
-    final s = d.inSeconds.remainder(60).toString().padLeft(2, '0');
-    return '$m:$s';
-  }
-
   Future<void> _initializeData() async {
     setState(() => _isLoading = true);
     _error = null;
@@ -164,92 +166,6 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
-  }
-
-  Widget _buildVerificationBanner() {
-    if (!_showVerificationBanner) return const SizedBox.shrink();
-
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
-    final backgroundColor =
-        isDark ? const Color(0xFF2D1A00) : const Color(0xFFFFF3E0);
-    final borderColor =
-        isDark ? const Color(0xFFBF6000) : const Color(0xFFFFB74D);
-    final titleColor =
-        isDark ? const Color(0xFFFFB74D) : const Color(0xFFE65100);
-    final bodyColor =
-        isDark ? const Color(0xFFCC8800) : const Color(0xFFF57C00);
-    final iconColor =
-        isDark ? const Color(0xFFFFB74D) : const Color(0xFFF57C00);
-
-    final bool onCooldown = _resendCooldown != null;
-    final bool busy = _isResendingEmail;
-
-    return Container(
-      margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: BoxDecoration(
-        color: backgroundColor,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: borderColor, width: 1),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(Icons.mark_email_unread_outlined, color: iconColor, size: 20),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Verify your email',
-                  style: TextStyle(
-                    fontWeight: FontWeight.w600,
-                    fontSize: 14,
-                    color: titleColor,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  'Please check your inbox and verify your email address to secure your account.',
-                  style: TextStyle(fontSize: 13, color: bodyColor, height: 1.4),
-                ),
-                const SizedBox(height: 8),
-                GestureDetector(
-                  onTap: (busy || onCooldown) ? null : _resendVerificationEmail,
-                  behavior: HitTestBehavior.opaque,
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 4),
-                    child: Text(
-                      busy
-                          ? 'Sending...'
-                          : onCooldown
-                          ? 'Resend in ${_formatCooldown(_resendCooldown!)}'
-                          : 'Resend email',
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                        color: (busy || onCooldown) ? bodyColor : titleColor,
-                        decoration:
-                            (busy || onCooldown)
-                                ? TextDecoration.none
-                                : TextDecoration.underline,
-                        decorationColor: titleColor,
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          GestureDetector(
-            onTap: () => setState(() => _showVerificationBanner = false),
-            child: Icon(Icons.close, size: 18, color: iconColor),
-          ),
-        ],
-      ),
-    );
   }
 
   Timer? _verificationPollTimer;
@@ -360,36 +276,6 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
     }
   }
 
-  Widget _buildBadge({
-    required IconData icon,
-    required String label,
-    required Color background,
-    required Color foreground,
-  }) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        color: background,
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 14, color: foreground),
-          const SizedBox(width: 6),
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-              color: foreground,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   String _getPostedLabel(DateTime journalDate) {
     final local = journalDate.toLocal();
     final now = DateTime.now();
@@ -465,7 +351,7 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
       barrierDismissible: true,
       builder:
           (dialogContext) =>
-              _EditPostDialog(initialText: post['text'] as String),
+              EditPostDialog(initialText: post['text'] as String),
     );
 
     if (!mounted) return;
@@ -919,15 +805,24 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
       child: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          _buildReflectoScoreSection(),
+          ReflectoScoreSection(
+            score: _reflectoScore?.score ?? 0,
+            hasPostedToday: _userPosts.isNotEmpty,
+          ),
           const SizedBox(height: 16),
-          _buildVerificationBanner(),
+          VerificationBanner(
+            show: _showVerificationBanner,
+            isResending: _isResendingEmail,
+            resendCooldown: _resendCooldown,
+            onResend: _resendVerificationEmail,
+            onDismiss: () => setState(() => _showVerificationBanner = false),
+          ),
 
           if (_userPosts.isNotEmpty) ...[
             const SizedBox(height: 8),
-            _CollapsibleUserPosts(
+            CollapsibleUserPosts(
               posts: _userPosts,
-              buildCard: (post) => _buildUserPostCard(theme, post),
+              buildCard: (post) => _buildUserPostCard(post),
               theme: theme,
             ),
             const SizedBox(height: 24),
@@ -941,682 +836,66 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
               ),
             ),
             const SizedBox(height: 16),
-            ..._friendsPosts
-                .map(
-                  (post) => Padding(
-                    padding: const EdgeInsets.only(bottom: 16),
-                    child: _buildFriendPostCard(theme, post),
-                  ),
-                )
-                .toList(),
+            ..._friendsPosts.map(
+              (post) => Padding(
+                padding: const EdgeInsets.only(bottom: 16),
+                child: _buildFriendPostCard(post),
+              ),
+            ),
           ],
         ],
       ),
     );
   }
 
-  Duration _timeUntilMidnight() {
-    final now = DateTime.now();
-    final midnight = DateTime(now.year, now.month, now.day + 1, 0, 0, 0);
-    return midnight.difference(now);
-  }
-
-  String _formatTimeUntilMidnight() {
-    final d = _timeUntilMidnight();
-    final h = d.inHours;
-    final m = d.inMinutes.remainder(60);
-    if (h > 0) return '${h}h ${m}m';
-    return '${m}m';
-  }
-
-  void _showScoringCriteriaSheet() {
-    final theme = Theme.of(context);
-    final score = _reflectoScore?.score ?? 0;
-
-    final String tierLabel;
-    final Color tierColor;
-    final IconData tierIcon;
-
-    if (score >= 100) {
-      tierLabel = 'Legend';
-      tierColor = const Color(0xFFFFD700);
-      tierIcon = Icons.auto_awesome;
-    } else if (score >= 50) {
-      tierLabel = 'Pro';
-      tierColor = const Color(0xFF9C27B0);
-      tierIcon = Icons.workspace_premium;
-    } else if (score >= 20) {
-      tierLabel = 'Rising';
-      tierColor = const Color(0xFF2196F3);
-      tierIcon = Icons.trending_up;
-    } else {
-      tierLabel = 'Starter';
-      tierColor = theme.colorScheme.primary;
-      tierIcon = Icons.star_outline;
-    }
-
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) {
-        return Container(
-          decoration: BoxDecoration(
-            color: theme.colorScheme.surface,
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-          ),
-          padding: const EdgeInsets.fromLTRB(24, 12, 24, 32),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Center(
-                child: Container(
-                  width: 36,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: theme.colorScheme.outlineVariant,
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 20),
-
-              Row(
-                children: [
-                  Container(
-                    width: 44,
-                    height: 44,
-                    decoration: BoxDecoration(
-                      color: tierColor.withOpacity(0.12),
-                      shape: BoxShape.circle,
-                    ),
-                    child: Icon(tierIcon, color: tierColor, size: 24),
-                  ),
-                  const SizedBox(width: 14),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'How your score is calculated',
-                        style: theme.textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      Text(
-                        'You\'re $tierLabel tier · $score pts',
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: tierColor,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-
-              const SizedBox(height: 24),
-
-              _ScoreRow(
-                emoji: '✍️',
-                label: 'Create a post',
-                points: '+5 pts',
-                color: Colors.green,
-                theme: theme,
-              ),
-              const SizedBox(height: 12),
-              _ScoreRow(
-                emoji: '💬',
-                label: 'Leave a comment',
-                points: '+2 pts',
-                color: Colors.blue,
-                theme: theme,
-              ),
-              const SizedBox(height: 12),
-              _ScoreRow(
-                emoji: '❤️',
-                label: 'React to a post',
-                points: '+1 pt',
-                color: Colors.red,
-                theme: theme,
-              ),
-
-              const SizedBox(height: 24),
-              Divider(color: theme.colorScheme.outlineVariant),
-              const SizedBox(height: 16),
-
-              Text(
-                'Tiers',
-                style: theme.textTheme.labelLarge?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              const SizedBox(height: 12),
-              _TierRow(
-                icon: Icons.star_outline,
-                label: 'Starter',
-                range: '0–19 pts',
-                color: theme.colorScheme.primary,
-                theme: theme,
-              ),
-              const SizedBox(height: 8),
-              _TierRow(
-                icon: Icons.trending_up,
-                label: 'Rising',
-                range: '20–49 pts',
-                color: const Color(0xFF2196F3),
-                theme: theme,
-              ),
-              const SizedBox(height: 8),
-              _TierRow(
-                icon: Icons.workspace_premium,
-                label: 'Pro',
-                range: '50–99 pts',
-                color: const Color(0xFF9C27B0),
-                theme: theme,
-              ),
-              const SizedBox(height: 8),
-              _TierRow(
-                icon: Icons.auto_awesome,
-                label: 'Legend',
-                range: '100+ pts',
-                color: const Color(0xFFFFD700),
-                theme: theme,
-              ),
-
-              const SizedBox(height: 24),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildReflectoScoreSection() {
-    final theme = Theme.of(context);
-    final score = _reflectoScore?.score ?? 0;
-    final hasPostedToday = _userPosts.isNotEmpty;
-    final timeLeft = _formatTimeUntilMidnight();
-    final hoursLeft = _timeUntilMidnight().inHours;
-
-    final String tierLabel;
-    final Color tierColor;
-    final IconData tierIcon;
-
-    if (score >= 100) {
-      tierLabel = 'Legend';
-      tierColor = const Color(0xFFFFD700);
-      tierIcon = Icons.auto_awesome;
-    } else if (score >= 50) {
-      tierLabel = 'Pro';
-      tierColor = const Color(0xFF9C27B0);
-      tierIcon = Icons.workspace_premium;
-    } else if (score >= 20) {
-      tierLabel = 'Rising';
-      tierColor = const Color(0xFF2196F3);
-      tierIcon = Icons.trending_up;
-    } else {
-      tierLabel = 'Starter';
-      tierColor = theme.colorScheme.primary;
-      tierIcon = Icons.star_outline;
-    }
-
-    final Color freshnessBg;
-    final Color freshnessText;
-    final IconData freshnessIcon;
-    final String freshnessLabel;
-
-    if (hasPostedToday) {
-      freshnessBg = Colors.green.withOpacity(0.12);
-      freshnessText = Colors.green.shade700;
-      freshnessIcon = Icons.check_circle_outline_rounded;
-      freshnessLabel = 'Post Created Today ✓';
-    } else if (hoursLeft <= 3) {
-      freshnessBg = Colors.red.withOpacity(0.10);
-      freshnessText = Colors.red.shade700;
-      freshnessIcon = Icons.timer_outlined;
-      freshnessLabel = 'Post soon — $timeLeft left today';
-    } else {
-      freshnessBg = Colors.orange.withOpacity(0.10);
-      freshnessText = Colors.orange.shade800;
-      freshnessIcon = Icons.hourglass_bottom_rounded;
-      freshnessLabel = '$timeLeft left to post today';
-    }
-
-    return GestureDetector(
-      onTap: _showScoringCriteriaSheet,
-      child: Card(
-        elevation: 0,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-          side: BorderSide(color: tierColor.withOpacity(0.25), width: 1.5),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  Container(
-                    width: 48,
-                    height: 48,
-                    decoration: BoxDecoration(
-                      gradient: RadialGradient(
-                        colors: [
-                          tierColor.withOpacity(0.25),
-                          tierColor.withOpacity(0.06),
-                        ],
-                      ),
-                      shape: BoxShape.circle,
-                    ),
-                    child: Icon(tierIcon, color: tierColor, size: 26),
-                  ),
-                  const SizedBox(width: 14),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Reflecto Score',
-                          style: theme.textTheme.labelMedium?.copyWith(
-                            color: theme.colorScheme.onSurfaceVariant,
-                            letterSpacing: 0.4,
-                          ),
-                        ),
-                        const SizedBox(height: 2),
-                        Row(
-                          crossAxisAlignment: CrossAxisAlignment.baseline,
-                          textBaseline: TextBaseline.alphabetic,
-                          children: [
-                            Text(
-                              '$score',
-                              style: theme.textTheme.headlineMedium?.copyWith(
-                                fontWeight: FontWeight.w800,
-                                color: tierColor,
-                                height: 1,
-                              ),
-                            ),
-                            const SizedBox(width: 6),
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
-                                vertical: 2,
-                              ),
-                              decoration: BoxDecoration(
-                                color: tierColor.withOpacity(0.12),
-                                borderRadius: BorderRadius.circular(20),
-                              ),
-                              child: Text(
-                                tierLabel,
-                                style: theme.textTheme.labelSmall?.copyWith(
-                                  color: tierColor,
-                                  fontWeight: FontWeight.w700,
-                                  letterSpacing: 0.5,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                  Icon(
-                    Icons.info_outline_rounded,
-                    size: 20,
-                    color: theme.colorScheme.onSurfaceVariant.withOpacity(0.4),
-                  ),
-                ],
-              ),
-
-              const SizedBox(height: 14),
-
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 8,
-                ),
-                decoration: BoxDecoration(
-                  color: freshnessBg,
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Row(
-                  children: [
-                    Icon(freshnessIcon, size: 14, color: freshnessText),
-                    const SizedBox(width: 8),
-                    Text(
-                      freshnessLabel,
-                      style: theme.textTheme.labelSmall?.copyWith(
-                        color: freshnessText,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildUserPostCard(ThemeData theme, Map<String, dynamic> post) {
+  Widget _buildUserPostCard(Map<String, dynamic> post) {
     final templateId = post['templateId'] as int?;
-    PostTemplate? template =
+    final PostTemplate? template =
         templateId != null
             ? _templateService.getTemplateById(templateId)
             : null;
-    final displayName = template?.name ?? 'Reflection';
     final journalDate =
         post['journal_date'] != null
             ? DateTime.parse(post['journal_date'])
             : post['timestamp'] as DateTime;
-    final commentCount = post['comment_count'] as int;
-    final totalReactions = post['total_reactions'] as int? ?? 0;
-    final userReaction = post['user_reaction'] as String?;
 
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(
-                  template?.iconData ?? Icons.help_outline,
-                  size: 20,
-                  color: theme.colorScheme.primary,
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    displayName,
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w600,
-                      color: theme.colorScheme.primary,
-                    ),
-                  ),
-                ),
-                IconButton(
-                  onPressed: () => _editPost(post),
-                  icon: Icon(
-                    Icons.edit_outlined,
-                    size: 20,
-                    color: theme.colorScheme.primary.withOpacity(0.7),
-                  ),
-                  tooltip: 'Edit post',
-                ),
-                IconButton(
-                  onPressed: () => _deletePost(post['id']),
-                  icon: Icon(
-                    Icons.delete_outline,
-                    size: 20,
-                    color: theme.colorScheme.error.withOpacity(0.7),
-                  ),
-                  tooltip: 'Delete post',
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                _buildBadge(
-                  icon: Icons.schedule,
-                  label: _getPostedLabel(journalDate),
-                  background: theme.colorScheme.surfaceVariant,
-                  foreground: theme.colorScheme.onSurfaceVariant,
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            Text(post['text'], style: theme.textTheme.bodyLarge),
-            const SizedBox(height: 12),
-            const Divider(),
-            Row(
-              children: [
-                InkWell(
-                  onTap: () => _showReactionPicker(post['id'], post),
-                  onLongPress: () => _showReactionPicker(post['id'], post),
-                  borderRadius: BorderRadius.circular(20),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 4,
-                    ),
-                    child: Row(
-                      children: [
-                        if (userReaction != null)
-                          Text(
-                            _reactionEmojis[userReaction]!,
-                            style: const TextStyle(fontSize: 20),
-                          )
-                        else
-                          Icon(
-                            Icons.favorite_border,
-                            size: 20,
-                            color: theme.colorScheme.onSurfaceVariant,
-                          ),
-                        const SizedBox(width: 4),
-                        Text(
-                          '$totalReactions',
-                          style: theme.textTheme.bodyMedium,
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 16),
-                InkWell(
-                  onTap: () => _showCommentsSheet(post),
-                  borderRadius: BorderRadius.circular(20),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 4,
-                    ),
-                    child: Row(
-                      children: [
-                        Icon(
-                          Icons.comment_outlined,
-                          size: 20,
-                          color: theme.colorScheme.onSurfaceVariant,
-                        ),
-                        const SizedBox(width: 4),
-                        Text(
-                          '$commentCount',
-                          style: theme.textTheme.bodyMedium,
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                const Spacer(),
-                if (totalReactions > 0)
-                  TextButton(
-                    onPressed: () => _showReactionsList(post['id']),
-                    child: const Text('View Reactions'),
-                  ),
-              ],
-            ),
-          ],
-        ),
-      ),
+    return UserPostCard(
+      post: post,
+      template: template,
+      postedLabel: _getPostedLabel(journalDate),
+      reactionEmojis: kReactionEmojis,
+      onEdit: () => _editPost(post),
+      onDelete: () => _deletePost(post['id']),
+      onReact: () => _showReactionPicker(post['id'], post),
+      onComment: () => _showCommentsSheet(post),
+      onViewReactions: () => _showReactionsList(post['id']),
     );
   }
 
-  Widget _buildFriendPostCard(ThemeData theme, Map<String, dynamic> post) {
+  Widget _buildFriendPostCard(Map<String, dynamic> post) {
     final templateId = post['templateId'] as int?;
-    final template =
+    final PostTemplate? template =
         templateId != null
             ? _templateService.getTemplateById(templateId)
             : null;
-    final userName = post['userName'] ?? 'Friend';
     final journalDate =
         post['journal_date'] != null
             ? DateTime.parse(post['journal_date'])
             : post['timestamp'] as DateTime;
-    final commentCount = post['comment_count'] as int;
-    final totalReactions = post['total_reactions'] as int? ?? 0;
-    final userReaction = post['user_reaction'] as String?;
 
-    return Card(
-      elevation: 1,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            GestureDetector(
-              onTap:
-                  () => _navigateToUserProfile(
-                    post['user_id'] as int,
-                    post['userName'] as String,
-                  ),
-              child: Row(
-                children: [
-                  CircleAvatar(
-                    radius: 20,
-                    backgroundColor: theme.colorScheme.primaryContainer,
-                    child: Text(
-                      userName.isNotEmpty ? userName[0].toUpperCase() : '?',
-                      style: TextStyle(
-                        color: theme.colorScheme.onPrimaryContainer,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          userName,
-                          style: theme.textTheme.titleSmall?.copyWith(
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        Text(
-                          _formatExpirationTime(journalDate),
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: theme.colorScheme.onSurfaceVariant,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 12),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              decoration: BoxDecoration(
-                color: theme.colorScheme.secondaryContainer,
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  if (template != null) ...[
-                    Icon(
-                      template.iconData,
-                      size: 16,
-                      color: theme.colorScheme.onSecondaryContainer,
-                    ),
-                    const SizedBox(width: 6),
-                  ],
-                  Flexible(
-                    child: Text(
-                      template?.name ?? 'Unknown template',
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.onSecondaryContainer,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 12),
-            Text(post['text'], style: theme.textTheme.bodyMedium),
-            const SizedBox(height: 12),
-            const Divider(),
-            Row(
-              children: [
-                InkWell(
-                  onTap: () => _showReactionPicker(post['id'], post),
-                  onLongPress: () => _showReactionPicker(post['id'], post),
-                  borderRadius: BorderRadius.circular(20),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 4,
-                    ),
-                    child: Row(
-                      children: [
-                        if (userReaction != null)
-                          Text(
-                            _reactionEmojis[userReaction]!,
-                            style: const TextStyle(fontSize: 20),
-                          )
-                        else
-                          Icon(
-                            Icons.favorite_border,
-                            size: 20,
-                            color: theme.colorScheme.onSurfaceVariant,
-                          ),
-                        const SizedBox(width: 4),
-                        Text(
-                          '$totalReactions',
-                          style: theme.textTheme.bodyMedium,
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 16),
-                InkWell(
-                  onTap: () => _showCommentsSheet(post),
-                  borderRadius: BorderRadius.circular(20),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 4,
-                    ),
-                    child: Row(
-                      children: [
-                        Icon(
-                          Icons.comment_outlined,
-                          size: 20,
-                          color: theme.colorScheme.onSurfaceVariant,
-                        ),
-                        const SizedBox(width: 4),
-                        Text(
-                          '$commentCount',
-                          style: theme.textTheme.bodyMedium,
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                const Spacer(),
-                if (totalReactions > 0)
-                  TextButton(
-                    onPressed: () => _showReactionsList(post['id']),
-                    child: const Text('View Reactions'),
-                  ),
-              ],
-            ),
-          ],
-        ),
-      ),
+    return FriendPostCard(
+      post: post,
+      template: template,
+      expirationLabel: _formatExpirationTime(journalDate),
+      reactionEmojis: kReactionEmojis,
+      onTapAvatar:
+          () => _navigateToUserProfile(
+            post['user_id'] as int,
+            post['userName'] as String,
+          ),
+      onReact: () => _showReactionPicker(post['id'], post),
+      onComment: () => _showCommentsSheet(post),
+      onViewReactions: () => _showReactionsList(post['id']),
     );
   }
 
@@ -1630,46 +909,7 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
       if (response.statusCode == 200) {
         final List<dynamic> reactions = json.decode(response.body);
         if (!mounted) return;
-
-        showDialog(
-          context: context,
-          builder:
-              (context) => AlertDialog(
-                title: Text('Reactions (${reactions.length})'),
-                content:
-                    reactions.isEmpty
-                        ? const Text('No reactions yet')
-                        : SizedBox(
-                          width: double.maxFinite,
-                          child: ListView.builder(
-                            shrinkWrap: true,
-                            itemCount: reactions.length,
-                            itemBuilder: (context, index) {
-                              final reaction = reactions[index];
-                              return ListTile(
-                                leading: Text(
-                                  _reactionEmojis[reaction['reaction_type']] ??
-                                      '❤️',
-                                  style: const TextStyle(fontSize: 24),
-                                ),
-                                title: Text(
-                                  reaction['display_name'] ?? 'Unknown',
-                                ),
-                                subtitle: Text(
-                                  '@${reaction['username'] ?? 'unknown'}',
-                                ),
-                              );
-                            },
-                          ),
-                        ),
-                actions: [
-                  TextButton(
-                    onPressed: () => Navigator.pop(context),
-                    child: const Text('Close'),
-                  ),
-                ],
-              ),
-        );
+        ReactionPicker.showReactionsList(context, reactions);
       }
     } catch (e) {
       if (mounted) {
@@ -1680,87 +920,15 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
     }
   }
 
-  final Map<String, String> _reactionEmojis = {
-    'heart': '❤️',
-    'laugh': '😂',
-    'sad': '😢',
-    'angry': '😠',
-    'surprised': '🤯',
-    'fire': '🔥',
-    'clap': '👏',
-    'thinking': '🤔',
-    'party': '🥳',
-    'cool': '😎',
-  };
-
   Future<void> _showReactionPicker(
     int postId,
     Map<String, dynamic> post,
   ) async {
     final currentReaction = post['user_reaction'] as String?;
-    final theme = Theme.of(context);
-
-    await showDialog(
-      context: context,
-      builder:
-          (context) => Dialog(
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    'React to this post',
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    alignment: WrapAlignment.center,
-                    children:
-                        _reactionEmojis.entries.map((entry) {
-                          final isSelected = currentReaction == entry.key;
-                          return InkWell(
-                            onTap: () {
-                              Navigator.pop(context);
-                              _addReaction(postId, entry.key);
-                            },
-                            borderRadius: BorderRadius.circular(12),
-                            child: Container(
-                              padding: const EdgeInsets.all(12),
-                              decoration: BoxDecoration(
-                                color:
-                                    isSelected
-                                        ? theme.colorScheme.primaryContainer
-                                        : theme.colorScheme.surfaceVariant
-                                            .withOpacity(0.5),
-                                borderRadius: BorderRadius.circular(12),
-                                border:
-                                    isSelected
-                                        ? Border.all(
-                                          color: theme.colorScheme.primary,
-                                          width: 2,
-                                        )
-                                        : null,
-                              ),
-                              child: Text(
-                                entry.value,
-                                style: const TextStyle(fontSize: 32),
-                              ),
-                            ),
-                          );
-                        }).toList(),
-                  ),
-                ],
-              ),
-            ),
-          ),
+    await ReactionPicker.show(
+      context,
+      currentReaction: currentReaction,
+      onSelect: (reactionType) => _addReaction(postId, reactionType),
     );
   }
 
@@ -1791,9 +959,18 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
       child: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          _buildReflectoScoreSection(),
+          ReflectoScoreSection(
+            score: _reflectoScore?.score ?? 0,
+            hasPostedToday: _userPosts.isNotEmpty,
+          ),
           const SizedBox(height: 16),
-          _buildVerificationBanner(),
+          VerificationBanner(
+            show: _showVerificationBanner,
+            isResending: _isResendingEmail,
+            resendCooldown: _resendCooldown,
+            onResend: _resendVerificationEmail,
+            onDismiss: () => setState(() => _showVerificationBanner = false),
+          ),
           const SizedBox(height: 48),
           Column(
             children: [
@@ -1919,664 +1096,5 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
     }
 
     _lastLifecycleState = state;
-  }
-}
-
-class _ScoreRow extends StatelessWidget {
-  final String emoji;
-  final String label;
-  final String points;
-  final Color color;
-  final ThemeData theme;
-
-  const _ScoreRow({
-    required this.emoji,
-    required this.label,
-    required this.points,
-    required this.color,
-    required this.theme,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Container(
-          width: 40,
-          height: 40,
-          decoration: BoxDecoration(
-            color: color.withOpacity(0.10),
-            borderRadius: BorderRadius.circular(10),
-          ),
-          child: Center(
-            child: Text(emoji, style: const TextStyle(fontSize: 20)),
-          ),
-        ),
-        const SizedBox(width: 14),
-        Expanded(
-          child: Text(
-            label,
-            style: theme.textTheme.bodyMedium?.copyWith(
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-        ),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-          decoration: BoxDecoration(
-            color: color.withOpacity(0.12),
-            borderRadius: BorderRadius.circular(20),
-          ),
-          child: Text(
-            points,
-            style: theme.textTheme.labelMedium?.copyWith(
-              color: color,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _TierRow extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final String range;
-  final Color color;
-  final ThemeData theme;
-
-  const _TierRow({
-    required this.icon,
-    required this.label,
-    required this.range,
-    required this.color,
-    required this.theme,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Icon(icon, size: 18, color: color),
-        const SizedBox(width: 10),
-        Text(
-          label,
-          style: theme.textTheme.bodyMedium?.copyWith(
-            fontWeight: FontWeight.w600,
-            color: color,
-          ),
-        ),
-        const Spacer(),
-        Text(
-          range,
-          style: theme.textTheme.bodySmall?.copyWith(
-            color: theme.colorScheme.onSurfaceVariant,
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class CommentsBottomSheet extends StatefulWidget {
-  final int postId;
-  final int currentUserId;
-  final VoidCallback onCommentAdded;
-
-  const CommentsBottomSheet({
-    super.key,
-    required this.postId,
-    required this.currentUserId,
-    required this.onCommentAdded,
-  });
-
-  @override
-  State<CommentsBottomSheet> createState() => _CommentsBottomSheetState();
-}
-
-class _EditPostDialog extends StatefulWidget {
-  final String initialText;
-  const _EditPostDialog({required this.initialText});
-
-  @override
-  State<_EditPostDialog> createState() => _EditPostDialogState();
-}
-
-class _CollapsibleUserPosts extends StatefulWidget {
-  final List<Map<String, dynamic>> posts;
-  final Widget Function(Map<String, dynamic> post) buildCard;
-  final ThemeData theme;
-
-  const _CollapsibleUserPosts({
-    required this.posts,
-    required this.buildCard,
-    required this.theme,
-  });
-
-  @override
-  State<_CollapsibleUserPosts> createState() => _CollapsibleUserPostsState();
-}
-
-class _CollapsibleUserPostsState extends State<_CollapsibleUserPosts> {
-  bool _expanded = false;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        InkWell(
-          onTap: () => setState(() => _expanded = !_expanded),
-          borderRadius: BorderRadius.circular(8),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 4),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    'Your Posts (${widget.posts.length})',
-                    style: widget.theme.textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w500,
-                      color: widget.theme.colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                ),
-                AnimatedRotation(
-                  turns: _expanded ? 0.5 : 0,
-                  duration: const Duration(milliseconds: 200),
-                  child: Icon(
-                    Icons.keyboard_arrow_down,
-                    color: widget.theme.colorScheme.onSurfaceVariant,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-        AnimatedCrossFade(
-          firstChild: const SizedBox.shrink(),
-          secondChild: Column(
-            children: [
-              const SizedBox(height: 12),
-              ...widget.posts.map(
-                (post) => Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
-                  child: widget.buildCard(post),
-                ),
-              ),
-            ],
-          ),
-          crossFadeState:
-              _expanded ? CrossFadeState.showSecond : CrossFadeState.showFirst,
-          duration: const Duration(milliseconds: 250),
-        ),
-      ],
-    );
-  }
-}
-
-class _EditPostDialogState extends State<_EditPostDialog> {
-  late final TextEditingController _controller;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = TextEditingController(text: widget.initialText);
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      title: const Text('Edit Post'),
-      content: TextField(
-        controller: _controller,
-        maxLength: 500,
-        maxLines: 5,
-        autofocus: true,
-        decoration: InputDecoration(
-          hintText: "What's on your mind?",
-          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-        ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Cancel'),
-        ),
-        FilledButton(
-          onPressed: () {
-            final trimmed = _controller.text.trim();
-            if (trimmed.isNotEmpty) {
-              Navigator.of(context).pop(trimmed);
-            }
-          },
-          child: const Text('Save'),
-        ),
-      ],
-    );
-  }
-}
-
-class _CommentsBottomSheetState extends State<CommentsBottomSheet> {
-  final TextEditingController _commentController = TextEditingController();
-  List<Map<String, dynamic>> _comments = [];
-  bool _isLoading = true;
-  bool _isSending = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _loadComments();
-  }
-
-  Future<void> _loadComments() async {
-    try {
-      final response = await http.get(
-        Uri.parse(
-          '${Environment.baseUrl}posts/${widget.postId}/comments?user_id=${widget.currentUserId}',
-        ),
-        headers: {'Content-Type': 'application/json'},
-      );
-
-      if (response.statusCode == 200) {
-        final dynamic responseBody = json.decode(response.body);
-        List<Map<String, dynamic>> commentsData;
-        if (responseBody == null) {
-          commentsData = [];
-        } else if (responseBody is List) {
-          commentsData = responseBody.cast<Map<String, dynamic>>();
-        } else {
-          commentsData = [];
-        }
-        if (mounted) {
-          setState(() {
-            _comments = commentsData;
-            _isLoading = false;
-          });
-        }
-      } else {
-        if (mounted)
-          setState(() {
-            _comments = [];
-            _isLoading = false;
-          });
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() {
-          _comments = [];
-          _isLoading = false;
-        });
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Error loading comments: $e')));
-      }
-    }
-  }
-
-  Future<void> _likeComment(int commentId) async {
-    try {
-      final response = await http.post(
-        Uri.parse('${Environment.baseUrl}comments/$commentId/like'),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({'user_id': widget.currentUserId}),
-      );
-      if (response.statusCode == 200) {
-        await _loadComments();
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Error: $e')));
-      }
-    }
-  }
-
-  Future<void> _deleteComment(int commentId) async {
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder:
-          (ctx) => AlertDialog(
-            title: const Text('Delete Comment'),
-            content: const Text('Delete this comment?'),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(ctx, false),
-                child: const Text('Cancel'),
-              ),
-              FilledButton(
-                style: FilledButton.styleFrom(
-                  backgroundColor: Theme.of(context).colorScheme.error,
-                ),
-                onPressed: () => Navigator.pop(ctx, true),
-                child: const Text('Delete'),
-              ),
-            ],
-          ),
-    );
-
-    if (confirm != true || !mounted) return;
-
-    try {
-      final response = await http.delete(
-        Uri.parse('${Environment.baseUrl}comments/$commentId'),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({'user_id': widget.currentUserId}),
-      );
-      if (response.statusCode == 200) {
-        await _loadComments();
-        widget.onCommentAdded();
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Error: $e')));
-      }
-    }
-  }
-
-  Future<void> _postComment() async {
-    if (_commentController.text.trim().isEmpty) return;
-
-    setState(() => _isSending = true);
-
-    try {
-      final response = await http.post(
-        Uri.parse('${Environment.baseUrl}posts/${widget.postId}/comments'),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          'user_id': widget.currentUserId,
-          'text': _commentController.text.trim(),
-        }),
-      );
-
-      if (response.statusCode == 201) {
-        _commentController.clear();
-        await _loadComments();
-        widget.onCommentAdded();
-        if (mounted) FocusScope.of(context).unfocus();
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Error posting comment: $e')));
-      }
-    } finally {
-      if (mounted) setState(() => _isSending = false);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    return DraggableScrollableSheet(
-      initialChildSize: 0.7,
-      minChildSize: 0.5,
-      maxChildSize: 0.95,
-      expand: false,
-      builder: (context, scrollController) {
-        return Column(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: theme.colorScheme.surface,
-                borderRadius: const BorderRadius.vertical(
-                  top: Radius.circular(20),
-                ),
-              ),
-              child: Row(
-                children: [
-                  Text(
-                    'Comments (${_comments.length})',
-                    style: theme.textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const Spacer(),
-                  IconButton(
-                    onPressed: () => Navigator.pop(context),
-                    icon: const Icon(Icons.close),
-                  ),
-                ],
-              ),
-            ),
-            const Divider(height: 1),
-            Expanded(
-              child:
-                  _isLoading
-                      ? const Center(child: CircularProgressIndicator())
-                      : _comments.isEmpty
-                      ? SingleChildScrollView(
-                        controller: scrollController,
-                        child: SizedBox(
-                          height: 280,
-                          child: Center(
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(
-                                  Icons.comment_outlined,
-                                  size: 64,
-                                  color: theme.colorScheme.onSurfaceVariant
-                                      .withOpacity(0.5),
-                                ),
-                                const SizedBox(height: 16),
-                                Text(
-                                  'No comments yet',
-                                  style: theme.textTheme.bodyLarge?.copyWith(
-                                    color: theme.colorScheme.onSurfaceVariant,
-                                  ),
-                                ),
-                                const SizedBox(height: 8),
-                                Text(
-                                  'Be the first to comment!',
-                                  style: theme.textTheme.bodyMedium?.copyWith(
-                                    color: theme.colorScheme.onSurfaceVariant,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      )
-                      : ListView.builder(
-                        controller: scrollController,
-                        itemCount: _comments.length,
-                        itemBuilder: (context, index) {
-                          final comment = _comments[index];
-                          final isOwner =
-                              (comment['user_id'] as int) ==
-                              widget.currentUserId;
-                          final likeCount = comment['like_count'] as int? ?? 0;
-                          final userLiked =
-                              comment['user_liked'] as bool? ?? false;
-
-                          return ListTile(
-                            leading: CircleAvatar(
-                              child: Text(
-                                (comment['display_name'] ?? 'U')[0]
-                                    .toUpperCase(),
-                              ),
-                            ),
-                            title: Text(
-                              comment['display_name'] ?? 'Unknown',
-                              style: const TextStyle(
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            subtitle: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(comment['text']),
-                                const SizedBox(height: 4),
-                                Text(
-                                  _formatCommentTime(comment['created_at']),
-                                  style: theme.textTheme.bodySmall?.copyWith(
-                                    color: theme.colorScheme.onSurfaceVariant,
-                                  ),
-                                ),
-                              ],
-                            ),
-                            isThreeLine: true,
-                            trailing: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                if (likeCount > 0 && isOwner)
-                                  Padding(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 6,
-                                      vertical: 4,
-                                    ),
-                                    child: Row(
-                                      children: [
-                                        const Icon(
-                                          Icons.favorite,
-                                          size: 16,
-                                          color: Colors.red,
-                                        ),
-                                        const SizedBox(width: 3),
-                                        Text(
-                                          '$likeCount',
-                                          style: theme.textTheme.bodySmall,
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                if (!isOwner)
-                                  InkWell(
-                                    onTap:
-                                        () =>
-                                            _likeComment(comment['id'] as int),
-                                    borderRadius: BorderRadius.circular(16),
-                                    child: Padding(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 6,
-                                        vertical: 4,
-                                      ),
-                                      child: Row(
-                                        children: [
-                                          Icon(
-                                            userLiked
-                                                ? Icons.favorite
-                                                : Icons.favorite_border,
-                                            size: 16,
-                                            color:
-                                                userLiked
-                                                    ? Colors.red
-                                                    : theme
-                                                        .colorScheme
-                                                        .onSurfaceVariant,
-                                          ),
-                                          if (likeCount > 0) ...[
-                                            const SizedBox(width: 3),
-                                            Text(
-                                              '$likeCount',
-                                              style: theme.textTheme.bodySmall,
-                                            ),
-                                          ],
-                                        ],
-                                      ),
-                                    ),
-                                  ),
-                                if (isOwner)
-                                  IconButton(
-                                    icon: Icon(
-                                      Icons.delete_outline,
-                                      size: 18,
-                                      color: theme.colorScheme.error
-                                          .withOpacity(0.7),
-                                    ),
-                                    onPressed:
-                                        () => _deleteComment(
-                                          comment['id'] as int,
-                                        ),
-                                    tooltip: 'Delete comment',
-                                    padding: EdgeInsets.zero,
-                                    constraints: const BoxConstraints(),
-                                  ),
-                              ],
-                            ),
-                          );
-                        },
-                      ),
-            ),
-            const Divider(height: 1),
-            Container(
-              padding: EdgeInsets.only(
-                left: 16,
-                right: 16,
-                top: 8,
-                bottom: MediaQuery.of(context).viewInsets.bottom + 8,
-              ),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: TextField(
-                      controller: _commentController,
-                      maxLength: 500,
-                      maxLines: null,
-                      decoration: InputDecoration(
-                        hintText: 'Write a comment...',
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(24),
-                        ),
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 12,
-                        ),
-                        counterText: '',
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  IconButton.filled(
-                    onPressed: _isSending ? null : _postComment,
-                    icon:
-                        _isSending
-                            ? const SizedBox(
-                              width: 20,
-                              height: 20,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
-                            : const Icon(Icons.send),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  String _formatCommentTime(String timestamp) {
-    final DateTime dateTime = DateTime.parse(timestamp);
-    final DateTime now = DateTime.now();
-    final Duration difference = now.difference(dateTime);
-
-    if (difference.inMinutes < 1) return 'Just now';
-    if (difference.inHours < 1) return '${difference.inMinutes}m ago';
-    if (difference.inDays < 1) return '${difference.inHours}h ago';
-    if (difference.inDays < 7) return '${difference.inDays}d ago';
-    return '${dateTime.day}/${dateTime.month}/${dateTime.year}';
-  }
-
-  @override
-  void dispose() {
-    _commentController.dispose();
-    super.dispose();
   }
 }
