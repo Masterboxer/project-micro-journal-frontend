@@ -8,11 +8,14 @@ class CommentsBottomSheet extends StatefulWidget {
   final int currentUserId;
   final VoidCallback onCommentAdded;
 
+  final void Function(Offset tapPosition)? onCommentPosted;
+
   const CommentsBottomSheet({
     super.key,
     required this.postId,
     required this.currentUserId,
     required this.onCommentAdded,
+    this.onCommentPosted,
   });
 
   @override
@@ -24,6 +27,8 @@ class _CommentsBottomSheetState extends State<CommentsBottomSheet> {
   List<Map<String, dynamic>> _comments = [];
   bool _isLoading = true;
   bool _isSending = false;
+
+  Offset _sendTapPosition = Offset.zero;
 
   @override
   void initState() {
@@ -143,6 +148,7 @@ class _CommentsBottomSheetState extends State<CommentsBottomSheet> {
   Future<void> _postComment() async {
     if (_commentController.text.trim().isEmpty) return;
 
+    final tapPosition = _sendTapPosition;
     setState(() => _isSending = true);
 
     try {
@@ -159,6 +165,7 @@ class _CommentsBottomSheetState extends State<CommentsBottomSheet> {
         _commentController.clear();
         await _loadComments();
         widget.onCommentAdded();
+        widget.onCommentPosted?.call(tapPosition);
         if (mounted) FocusScope.of(context).unfocus();
       }
     } catch (e) {
@@ -397,16 +404,22 @@ class _CommentsBottomSheetState extends State<CommentsBottomSheet> {
                     ),
                   ),
                   const SizedBox(width: 8),
-                  IconButton.filled(
-                    onPressed: _isSending ? null : _postComment,
-                    icon:
-                        _isSending
-                            ? const SizedBox(
-                              width: 20,
-                              height: 20,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
-                            : const Icon(Icons.send),
+
+                  Listener(
+                    onPointerDown: (event) => _sendTapPosition = event.position,
+                    child: IconButton.filled(
+                      onPressed: _isSending ? null : _postComment,
+                      icon:
+                          _isSending
+                              ? const SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              )
+                              : const Icon(Icons.send),
+                    ),
                   ),
                 ],
               ),

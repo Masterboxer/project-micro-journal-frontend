@@ -593,10 +593,19 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder:
-          (context) => CommentsBottomSheet(
+          (sheetContext) => CommentsBottomSheet(
             postId: post['id'],
             currentUserId: _currentUserId!,
             onCommentAdded: () => _loadFeed(),
+            onCommentPosted: (tapPosition) {
+              ScoreFlyOverlay.fly(
+                context: sheetContext,
+                start: tapPosition,
+                targetKey: _scoreTargetKey,
+                points: 2,
+                onLanded: _loadReflectoScore,
+              );
+            },
           ),
     );
   }
