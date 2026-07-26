@@ -17,7 +17,12 @@ class ReactionPicker {
   static Future<void> show(
     BuildContext context, {
     required String? currentReaction,
-    required void Function(String reactionType, Offset tapPosition) onSelect,
+    required void Function(
+      String reactionType,
+      Offset tapPosition,
+      bool isUnselecting,
+    )
+    onSelect,
   }) {
     final theme = Theme.of(context);
     return showDialog(
@@ -53,7 +58,7 @@ class ReactionPicker {
                                     tapPosition = details.globalPosition,
                             onTap: () {
                               Navigator.pop(context);
-                              onSelect(entry.key, tapPosition);
+                              onSelect(entry.key, tapPosition, isSelected);
                             },
                             borderRadius: BorderRadius.circular(12),
                             child: Container(

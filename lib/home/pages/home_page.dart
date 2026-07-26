@@ -932,8 +932,8 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
       context,
       currentReaction: currentReaction,
       onSelect:
-          (reactionType, tapPosition) =>
-              _addReaction(postId, reactionType, tapPosition),
+          (reactionType, tapPosition, isUnselecting) =>
+              _addReaction(postId, reactionType, tapPosition, isUnselecting),
     );
   }
 
@@ -941,8 +941,10 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
     int postId,
     String reactionType,
     Offset tapPosition,
+    bool isUnselecting,
   ) async {
     if (_currentUserId == null) return;
+
     try {
       final response = await http.post(
         Uri.parse('${Environment.baseUrl}posts/$postId/react'),
@@ -952,14 +954,19 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
           'reaction_type': reactionType,
         }),
       );
+
       if (response.statusCode == 200) {
-        ScoreFlyOverlay.fly(
-          context: context,
-          start: tapPosition,
-          targetKey: _scoreTargetKey,
-          points: 1,
-          onLanded: _loadReflectoScore,
-        );
+        if (isUnselecting) {
+          await _loadReflectoScore();
+        } else {
+          ScoreFlyOverlay.fly(
+            context: context,
+            start: tapPosition,
+            targetKey: _scoreTargetKey,
+            points: 1,
+            onLanded: _loadReflectoScore,
+          );
+        }
         await _loadFeed();
       }
     } catch (e) {
