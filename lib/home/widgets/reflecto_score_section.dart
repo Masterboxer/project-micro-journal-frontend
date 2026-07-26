@@ -41,14 +41,23 @@ class ReflectoScoreSection extends StatelessWidget {
     );
   }
 
-  Duration _timeUntilMidnight() {
+  DateTime _nextDeadline() {
     final now = DateTime.now();
-    final midnight = DateTime(now.year, now.month, now.day + 1, 0, 0, 0);
-    return midnight.difference(now);
+    if (now.hour < 12) {
+      // Still inside yesterday's journal window — deadline is today at noon.
+      return DateTime(now.year, now.month, now.day, 12, 0, 0);
+    }
+    // Inside today's journal window — deadline is tomorrow at noon.
+    final tomorrow = now.add(const Duration(days: 1));
+    return DateTime(tomorrow.year, tomorrow.month, tomorrow.day, 12, 0, 0);
   }
 
-  String _formatTimeUntilMidnight() {
-    final d = _timeUntilMidnight();
+  Duration _timeUntilDeadline() {
+    return _nextDeadline().difference(DateTime.now());
+  }
+
+  String _formatTimeUntilDeadline() {
+    final d = _timeUntilDeadline();
     final h = d.inHours;
     final m = d.inMinutes.remainder(60);
     if (h > 0) return '${h}h ${m}m';
@@ -194,8 +203,8 @@ class ReflectoScoreSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final timeLeft = _formatTimeUntilMidnight();
-    final hoursLeft = _timeUntilMidnight().inHours;
+    final timeLeft = _formatTimeUntilDeadline();
+    final hoursLeft = _timeUntilDeadline().inHours;
     final tier = _tierFor(theme, score);
 
     final Color freshnessBg;
@@ -217,7 +226,7 @@ class ReflectoScoreSection extends StatelessWidget {
       freshnessBg = Colors.orange.withOpacity(0.10);
       freshnessText = Colors.orange.shade800;
       freshnessIcon = Icons.hourglass_bottom_rounded;
-      freshnessLabel = '$timeLeft left to post today';
+      freshnessLabel = '$timeLeft left to maintain your Reflecto Score';
     }
 
     return GestureDetector(
