@@ -7,6 +7,7 @@ import 'package:http/http.dart' as http;
 import 'package:project_micro_journal/authentication/services/authentication_token_storage_service.dart';
 import 'package:project_micro_journal/environment/development.dart';
 import 'package:project_micro_journal/home/models/reflecto_score.dart';
+import 'package:project_micro_journal/home/widgets/score_fly_overlay.dart';
 import 'package:project_micro_journal/posts/pages/create_post_page.dart';
 import 'package:project_micro_journal/posts/pages/first_post_invite_popup.dart';
 import 'package:project_micro_journal/profile/pages/profile_page.dart';
@@ -38,6 +39,7 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
   final AuthenticationTokenStorageService _authStorage =
       AuthenticationTokenStorageService();
   final FirebaseMessaging _firebaseMessaging = FirebaseMessaging.instance;
+  final _scoreTargetKey = GlobalKey();
 
   final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
       FlutterLocalNotificationsPlugin();
@@ -808,6 +810,7 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
           ReflectoScoreSection(
             score: _reflectoScore?.score ?? 0,
             hasPostedToday: _userPosts.isNotEmpty,
+            scoreTargetKey: _scoreTargetKey,
           ),
           const SizedBox(height: 16),
           VerificationBanner(
@@ -928,13 +931,18 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
     await ReactionPicker.show(
       context,
       currentReaction: currentReaction,
-      onSelect: (reactionType) => _addReaction(postId, reactionType),
+      onSelect:
+          (reactionType, tapPosition) =>
+              _addReaction(postId, reactionType, tapPosition),
     );
   }
 
-  Future<void> _addReaction(int postId, String reactionType) async {
+  Future<void> _addReaction(
+    int postId,
+    String reactionType,
+    Offset tapPosition,
+  ) async {
     if (_currentUserId == null) return;
-
     try {
       final response = await http.post(
         Uri.parse('${Environment.baseUrl}posts/$postId/react'),
@@ -944,8 +952,14 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
           'reaction_type': reactionType,
         }),
       );
-
       if (response.statusCode == 200) {
+        ScoreFlyOverlay.fly(
+          context: context,
+          start: tapPosition,
+          targetKey: _scoreTargetKey,
+          points: 1,
+          onLanded: _loadReflectoScore,
+        );
         await _loadFeed();
       }
     } catch (e) {
@@ -962,6 +976,7 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
           ReflectoScoreSection(
             score: _reflectoScore?.score ?? 0,
             hasPostedToday: _userPosts.isNotEmpty,
+            scoreTargetKey: _scoreTargetKey,
           ),
           const SizedBox(height: 16),
           VerificationBanner(

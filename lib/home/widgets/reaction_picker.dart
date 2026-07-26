@@ -17,7 +17,7 @@ class ReactionPicker {
   static Future<void> show(
     BuildContext context, {
     required String? currentReaction,
-    required void Function(String reactionType) onSelect,
+    required void Function(String reactionType, Offset tapPosition) onSelect,
   }) {
     final theme = Theme.of(context);
     return showDialog(
@@ -46,10 +46,14 @@ class ReactionPicker {
                     children:
                         kReactionEmojis.entries.map((entry) {
                           final isSelected = currentReaction == entry.key;
+                          Offset tapPosition = Offset.zero;
                           return InkWell(
+                            onTapDown:
+                                (details) =>
+                                    tapPosition = details.globalPosition,
                             onTap: () {
                               Navigator.pop(context);
-                              onSelect(entry.key);
+                              onSelect(entry.key, tapPosition);
                             },
                             borderRadius: BorderRadius.circular(12),
                             child: Container(

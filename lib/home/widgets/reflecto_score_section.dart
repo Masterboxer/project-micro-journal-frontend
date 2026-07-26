@@ -1,15 +1,89 @@
 import 'package:flutter/material.dart';
 import 'score_rows.dart';
 
-class ReflectoScoreSection extends StatelessWidget {
+class ReflectoScoreSection extends StatefulWidget {
   final int score;
   final bool hasPostedToday;
+
+  final GlobalKey? scoreTargetKey;
 
   const ReflectoScoreSection({
     super.key,
     required this.score,
     required this.hasPostedToday,
+    this.scoreTargetKey,
   });
+
+  @override
+  State<ReflectoScoreSection> createState() => _ReflectoScoreSectionState();
+}
+
+class _ReflectoScoreSectionState extends State<ReflectoScoreSection>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _pulseController;
+  late final Animation<double> _scaleAnim;
+
+  late int _displayScore;
+  bool _countingUp = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _displayScore = widget.score;
+
+    _pulseController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 500),
+    );
+
+    _scaleAnim = TweenSequence<double>([
+      TweenSequenceItem(
+        weight: 35,
+        tween: Tween(
+          begin: 1.0,
+          end: 1.32,
+        ).chain(CurveTween(curve: Curves.easeOut)),
+      ),
+      TweenSequenceItem(
+        weight: 65,
+        tween: Tween(
+          begin: 1.32,
+          end: 1.0,
+        ).chain(CurveTween(curve: Curves.elasticOut)),
+      ),
+    ]).animate(_pulseController);
+  }
+
+  @override
+  void didUpdateWidget(covariant ReflectoScoreSection oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.score != oldWidget.score && !_countingUp) {
+      _animateToNewScore(oldWidget.score, widget.score);
+    }
+  }
+
+  Future<void> _animateToNewScore(int from, int to) async {
+    _countingUp = true;
+    _pulseController.forward(from: 0);
+
+    final diff = to - from;
+    final steps = diff.abs().clamp(1, 12);
+    final stepMs = (280 / steps).clamp(18, 280).round();
+
+    for (int i = 1; i <= steps; i++) {
+      await Future.delayed(Duration(milliseconds: stepMs));
+      if (!mounted) return;
+      setState(() => _displayScore = from + ((diff * i) / steps).round());
+    }
+    if (mounted) setState(() => _displayScore = to);
+    _countingUp = false;
+  }
+
+  @override
+  void dispose() {
+    _pulseController.dispose();
+    super.dispose();
+  }
 
   ({String label, Color color, IconData icon}) _tierFor(
     ThemeData theme,
@@ -50,9 +124,7 @@ class ReflectoScoreSection extends StatelessWidget {
     return DateTime(tomorrow.year, tomorrow.month, tomorrow.day, 12, 0, 0);
   }
 
-  Duration _timeUntilDeadline() {
-    return _nextDeadline().difference(DateTime.now());
-  }
+  Duration _timeUntilDeadline() => _nextDeadline().difference(DateTime.now());
 
   String _formatTimeUntilDeadline() {
     final d = _timeUntilDeadline();
@@ -64,7 +136,7 @@ class ReflectoScoreSection extends StatelessWidget {
 
   void _showScoringCriteriaSheet(BuildContext context) {
     final theme = Theme.of(context);
-    final tier = _tierFor(theme, score);
+    final tier = _tierFor(theme, widget.score);
 
     showModalBottomSheet(
       context: context,
@@ -114,7 +186,7 @@ class ReflectoScoreSection extends StatelessWidget {
                         ),
                       ),
                       Text(
-                        'You\'re ${tier.label} tier · $score pts',
+                        'You\'re ${tier.label} tier · ${widget.score} pts',
                         style: theme.textTheme.bodySmall?.copyWith(
                           color: tier.color,
                           fontWeight: FontWeight.w600,
@@ -221,14 +293,14 @@ class ReflectoScoreSection extends StatelessWidget {
     final theme = Theme.of(context);
     final timeLeft = _formatTimeUntilDeadline();
     final hoursLeft = _timeUntilDeadline().inHours;
-    final tier = _tierFor(theme, score);
+    final tier = _tierFor(theme, _displayScore);
 
     final Color freshnessBg;
     final Color freshnessText;
     final IconData freshnessIcon;
     final String freshnessLabel;
 
-    if (hasPostedToday) {
+    if (widget.hasPostedToday) {
       freshnessBg = Colors.green.withOpacity(0.12);
       freshnessText = Colors.green.shade700;
       freshnessIcon = Icons.check_circle_outline_rounded;
@@ -261,19 +333,27 @@ class ReflectoScoreSection extends StatelessWidget {
               Row(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  Container(
-                    width: 48,
-                    height: 48,
-                    decoration: BoxDecoration(
-                      gradient: RadialGradient(
-                        colors: [
-                          tier.color.withOpacity(0.25),
-                          tier.color.withOpacity(0.06),
-                        ],
+                  AnimatedBuilder(
+                    animation: _pulseController,
+                    builder:
+                        (context, child) => Transform.scale(
+                          scale: _scaleAnim.value,
+                          child: child,
+                        ),
+                    child: Container(
+                      width: 48,
+                      height: 48,
+                      decoration: BoxDecoration(
+                        gradient: RadialGradient(
+                          colors: [
+                            tier.color.withOpacity(0.25),
+                            tier.color.withOpacity(0.06),
+                          ],
+                        ),
+                        shape: BoxShape.circle,
                       ),
-                      shape: BoxShape.circle,
+                      child: Icon(tier.icon, color: tier.color, size: 26),
                     ),
-                    child: Icon(tier.icon, color: tier.color, size: 26),
                   ),
                   const SizedBox(width: 14),
                   Expanded(
@@ -292,12 +372,30 @@ class ReflectoScoreSection extends StatelessWidget {
                           crossAxisAlignment: CrossAxisAlignment.baseline,
                           textBaseline: TextBaseline.alphabetic,
                           children: [
-                            Text(
-                              '$score',
-                              style: theme.textTheme.headlineMedium?.copyWith(
-                                fontWeight: FontWeight.w800,
-                                color: tier.color,
-                                height: 1,
+                            AnimatedBuilder(
+                              animation: _pulseController,
+                              builder:
+                                  (context, child) => Transform.scale(
+                                    scale: _scaleAnim.value,
+                                    child: child,
+                                  ),
+                              child: Container(
+                                key: widget.scoreTargetKey,
+                                child: Text(
+                                  '$_displayScore',
+                                  style: theme.textTheme.headlineMedium
+                                      ?.copyWith(
+                                        fontWeight: FontWeight.w800,
+                                        color: Color.lerp(
+                                          tier.color,
+                                          Colors.green,
+                                          _pulseController.value *
+                                              (1 - _pulseController.value) *
+                                              4,
+                                        ),
+                                        height: 1,
+                                      ),
+                                ),
                               ),
                             ),
                             const SizedBox(width: 6),
