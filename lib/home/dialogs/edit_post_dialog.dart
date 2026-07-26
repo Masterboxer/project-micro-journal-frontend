@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
 
-/// Extracted from HomePageState's private `_EditPostDialog`.
-/// Pops the trimmed, non-empty text on save; pops null on cancel.
 class EditPostDialog extends StatefulWidget {
   final String initialText;
   const EditPostDialog({super.key, required this.initialText});

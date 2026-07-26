@@ -3,8 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:project_micro_journal/environment/development.dart';
 
-/// Extracted verbatim from home_page.dart's public `CommentsBottomSheet`.
-/// Self-contained: fetches, posts, likes, and deletes comments for a post.
 class CommentsBottomSheet extends StatefulWidget {
   final int postId;
   final int currentUserId;

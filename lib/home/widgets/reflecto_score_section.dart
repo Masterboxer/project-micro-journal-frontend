@@ -1,11 +1,6 @@
 import 'package:flutter/material.dart';
 import 'score_rows.dart';
 
-/// Extracted from HomePageState._buildReflectoScoreSection +
-/// _showScoringCriteriaSheet. Only needs the raw score and whether the user
-/// posted today — everything else (tier, freshness copy, midnight countdown)
-/// is derived internally since none of it depends on other HomePageState
-/// fields.
 class ReflectoScoreSection extends StatelessWidget {
   final int score;
   final bool hasPostedToday;

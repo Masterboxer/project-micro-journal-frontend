@@ -1,9 +1,5 @@
 import 'package:flutter/material.dart';
 
-/// Extracted from HomePageState (_reactionEmojis, _showReactionPicker,
-/// _showReactionsList). Pure UI only — the http calls that fetch/post
-/// reactions still live in HomePageState and are passed in as callbacks or
-/// already-fetched data, keeping that logic in one authoritative place.
 const Map<String, String> kReactionEmojis = {
   'heart': '❤️',
   'laugh': '😂',

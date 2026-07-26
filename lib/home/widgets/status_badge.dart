@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
 
-/// Small pill-shaped badge with an icon + label.
-/// Extracted from HomePageState._buildBadge — used by both post cards.
 class StatusBadge extends StatelessWidget {
   final IconData icon;
   final String label;

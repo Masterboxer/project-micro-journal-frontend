@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
 
-/// Extracted from HomePageState's private `_ScoreRow` / `_TierRow`,
-/// used by ReflectoScoreSection's scoring-criteria bottom sheet.
 class ScoreRow extends StatelessWidget {
   final String emoji;
   final String label;

@@ -2,9 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:project_micro_journal/templates/template_model.dart';
 import 'status_badge.dart';
 
-/// Extracted from HomePageState._buildUserPostCard. All data (labels,
-/// resolved template) is computed by HomePageState and passed in; all
-/// actions are callbacks so the actual http/dialog logic stays put.
 class UserPostCard extends StatelessWidget {
   final Map<String, dynamic> post;
   final PostTemplate? template;
@@ -111,7 +108,6 @@ class UserPostCard extends StatelessWidget {
   }
 }
 
-/// Extracted from HomePageState._buildFriendPostCard.
 class FriendPostCard extends StatelessWidget {
   final Map<String, dynamic> post;
   final PostTemplate? template;
@@ -238,8 +234,6 @@ class FriendPostCard extends StatelessWidget {
   }
 }
 
-/// Shared reaction/comment row used by both card types — was duplicated
-/// verbatim in the original file, so this also removes that duplication.
 class _PostActionsRow extends StatelessWidget {
   final String? userReaction;
   final int totalReactions;

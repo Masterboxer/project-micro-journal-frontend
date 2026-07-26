@@ -1,8 +1,5 @@
 import 'package:flutter/material.dart';
 
-/// Extracted from HomePageState._buildVerificationBanner.
-/// All state (cooldown timer, busy flag) still lives in HomePageState —
-/// this widget is purely presentational.
 class VerificationBanner extends StatelessWidget {
   final bool show;
   final bool isResending;

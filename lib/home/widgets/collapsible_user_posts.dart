@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-/// Extracted from HomePageState's private `_CollapsibleUserPosts`.
 class CollapsibleUserPosts extends StatefulWidget {
   final List<Map<String, dynamic>> posts;
   final Widget Function(Map<String, dynamic> post) buildCard;
