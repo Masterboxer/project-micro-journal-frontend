@@ -44,10 +44,8 @@ class ReflectoScoreSection extends StatelessWidget {
   DateTime _nextDeadline() {
     final now = DateTime.now();
     if (now.hour < 12) {
-      // Still inside yesterday's journal window — deadline is today at noon.
       return DateTime(now.year, now.month, now.day, 12, 0, 0);
     }
-    // Inside today's journal window — deadline is tomorrow at noon.
     final tomorrow = now.add(const Duration(days: 1));
     return DateTime(tomorrow.year, tomorrow.month, tomorrow.day, 12, 0, 0);
   }
