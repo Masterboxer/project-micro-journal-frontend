@@ -148,6 +148,24 @@ class ReflectoScoreSection extends StatelessWidget {
                 color: Colors.red,
                 theme: theme,
               ),
+              const SizedBox(height: 12),
+              ScoreRow(
+                emoji: '🌙',
+                label: 'Miss a day',
+                points: '-1 pt',
+                color: Colors.grey,
+                theme: theme,
+              ),
+              const SizedBox(height: 6),
+              Padding(
+                padding: const EdgeInsets.only(left: 54),
+                child: Text(
+                  'Score Decay keeps your posting habit strong, and helps you spot which friends are still active.',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ),
               const SizedBox(height: 24),
               Divider(color: theme.colorScheme.outlineVariant),
               const SizedBox(height: 16),
