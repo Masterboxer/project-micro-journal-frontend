@@ -106,7 +106,7 @@ class FirstPostInvitePopup extends StatelessWidget {
           const SizedBox(height: 20),
 
           Text(
-            'Reflecto works best when the people you care about are in your circle. But there is room for up to only 10, this helps to remove outside noise and focus only on people who matter.',
+            'Reflecto works best when the people you care about are in your circle. But there is room for up to only 10 people, this helps to remove outside noise and focus only on people who matter.',
             style: theme.textTheme.bodyMedium?.copyWith(
               color: theme.colorScheme.onSurfaceVariant,
               height: 1.55,
