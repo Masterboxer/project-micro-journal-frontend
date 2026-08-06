@@ -23,7 +23,7 @@ import '../dialogs/edit_post_dialog.dart';
 import '../widgets/collapsible_user_posts.dart';
 import '../widgets/post_card.dart';
 import '../widgets/reaction_picker.dart';
-import '../widgets/reflecto_score_section.dart';
+import '../widgets/reflecto_journey_section.dart';
 import '../widgets/verification_banner.dart';
 
 class HomePage extends StatefulWidget {

@@ -33,7 +33,7 @@ enum GrowthStage {
 class ReflectoProgress {
   final int daysPosted;
   final GrowthStage stage;
-  final int daysToNext; // -1 if at max stage
+  final int daysToNext;
   final double progressInStage;
   final bool hasPostedToday;
   final String monthKey;
