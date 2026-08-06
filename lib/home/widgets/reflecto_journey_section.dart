@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:project_micro_journal/home/models/reflecto_progress.dart';
-import 'stage_up_celebration.dart';
 
-class ReflectionJourneySection extends StatefulWidget {
+class ReflectionJourneySection extends StatelessWidget {
   final int daysPosted;
   final GrowthStage stage;
   final int daysToNext;
@@ -19,30 +17,8 @@ class ReflectionJourneySection extends StatefulWidget {
     required this.hasPostedToday,
   });
 
-  @override
-  State<ReflectionJourneySection> createState() =>
-      _ReflectionJourneySectionState();
-}
-
-class _ReflectionJourneySectionState extends State<ReflectionJourneySection> {
   static const List<int> _stageThresholds = [3, 7, 13, 19, 25];
   static const double _totalSpan = 25.0;
-
-  @override
-  void didUpdateWidget(covariant ReflectionJourneySection oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (widget.stage.index > oldWidget.stage.index) {
-      HapticFeedback.mediumImpact();
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted) return;
-        StageUpCelebration.show(
-          context,
-          stageLabel: widget.stage.label,
-          icon: widget.stage.icon,
-        );
-      });
-    }
-  }
 
   void _showJourneyInfoSheet(BuildContext context) {
     final theme = Theme.of(context);
@@ -83,7 +59,7 @@ class _ReflectionJourneySectionState extends State<ReflectionJourneySection> {
                       shape: BoxShape.circle,
                     ),
                     child: Icon(
-                      widget.stage.icon,
+                      stage.icon,
                       color: theme.colorScheme.primary,
                       size: 22,
                     ),
@@ -99,7 +75,7 @@ class _ReflectionJourneySectionState extends State<ReflectionJourneySection> {
                         ),
                       ),
                       Text(
-                        'You\'re at ${widget.stage.label} · ${widget.daysPosted} this month',
+                        'You\'re at ${stage.label} · ${daysPosted} this month',
                         style: theme.textTheme.bodySmall?.copyWith(
                           color: theme.colorScheme.primary,
                           fontWeight: FontWeight.w600,
@@ -123,8 +99,8 @@ class _ReflectionJourneySectionState extends State<ReflectionJourneySection> {
               ...List.generate(GrowthStage.values.length, (i) {
                 final s = GrowthStage.values[i];
                 final minDay = i == 0 ? 0 : _stageThresholds[i - 1];
-                final isCurrent = s == widget.stage;
-                final isReached = widget.daysPosted >= minDay;
+                final isCurrent = s == stage;
+                final isReached = daysPosted >= minDay;
                 final rangeLabel =
                     i == GrowthStage.values.length - 1
                         ? '$minDay+ days'
@@ -193,10 +169,10 @@ class _ReflectionJourneySectionState extends State<ReflectionJourneySection> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final isMax = widget.daysToNext < 0;
-    final nextStage = isMax ? null : GrowthStage.values[widget.stage.index + 1];
+    final isMax = daysToNext < 0;
+    final nextStage = isMax ? null : GrowthStage.values[stage.index + 1];
     final accent = theme.colorScheme.primary;
-    final fillFraction = (widget.daysPosted / _totalSpan).clamp(0.0, 1.0);
+    final fillFraction = (daysPosted / _totalSpan).clamp(0.0, 1.0);
 
     return GestureDetector(
       onTap: () => _showJourneyInfoSheet(context),
@@ -232,7 +208,7 @@ class _ReflectionJourneySectionState extends State<ReflectionJourneySection> {
                         color: accent.withOpacity(0.10),
                         shape: BoxShape.circle,
                       ),
-                      child: Icon(widget.stage.icon, color: accent, size: 21),
+                      child: Icon(stage.icon, color: accent, size: 21),
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -241,13 +217,13 @@ class _ReflectionJourneySectionState extends State<ReflectionJourneySection> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          widget.stage.label,
+                          stage.label,
                           style: theme.textTheme.titleMedium?.copyWith(
                             fontWeight: FontWeight.w700,
                           ),
                         ),
                         Text(
-                          '${widget.daysPosted} reflection${widget.daysPosted == 1 ? '' : 's'} this month',
+                          '${daysPosted} reflection${daysPosted == 1 ? '' : 's'} this month',
                           style: theme.textTheme.bodySmall?.copyWith(
                             color: theme.colorScheme.onSurfaceVariant,
                           ),
@@ -255,7 +231,7 @@ class _ReflectionJourneySectionState extends State<ReflectionJourneySection> {
                       ],
                     ),
                   ),
-                  if (widget.hasPostedToday)
+                  if (hasPostedToday)
                     Container(
                       padding: const EdgeInsets.symmetric(
                         horizontal: 10,
@@ -296,7 +272,7 @@ class _ReflectionJourneySectionState extends State<ReflectionJourneySection> {
               ),
               const SizedBox(height: 18),
               SizedBox(
-                height: 14,
+                height: 16,
                 child: LayoutBuilder(
                   builder: (context, constraints) {
                     final width = constraints.maxWidth;
@@ -327,10 +303,11 @@ class _ReflectionJourneySectionState extends State<ReflectionJourneySection> {
                                 ),
                           ),
                         ),
+                        // Checkpoint markers at each stage boundary
                         ..._stageThresholds.map((day) {
                           final f = day / _totalSpan;
-                          final left = (width * f - 3).clamp(0.0, width - 6.0);
-                          final cleared = widget.daysPosted >= day;
+                          final left = (width * f - 8).clamp(0.0, width - 16.0);
+                          final cleared = daysPosted >= day;
                           return Positioned(
                             left: left,
                             child: TweenAnimationBuilder<double>(
@@ -339,27 +316,35 @@ class _ReflectionJourneySectionState extends State<ReflectionJourneySection> {
                               curve: Curves.elasticOut,
                               builder:
                                   (context, t, _) => Container(
-                                    width: 6 + (2 * t),
-                                    height: 14,
+                                    width: 16,
+                                    height: 16,
+                                    alignment: Alignment.center,
                                     decoration: BoxDecoration(
-                                      color:
-                                          cleared
-                                              ? theme
-                                                  .colorScheme
-                                                  .surfaceContainerLow
-                                              : theme
-                                                  .colorScheme
-                                                  .surfaceContainerLow
-                                                  .withOpacity(0.6),
-                                      borderRadius: BorderRadius.circular(3),
-                                      border:
-                                          cleared
-                                              ? Border.all(
-                                                color: accent.withOpacity(0.5),
-                                                width: 1,
-                                              )
-                                              : null,
+                                      color: Color.lerp(
+                                        theme.colorScheme.surfaceContainerLow,
+                                        Colors.green,
+                                        t,
+                                      ),
+                                      shape: BoxShape.circle,
+                                      border: Border.all(
+                                        color:
+                                            cleared
+                                                ? Colors.green
+                                                : theme
+                                                    .colorScheme
+                                                    .outlineVariant
+                                                    .withOpacity(0.6),
+                                        width: 1.5,
+                                      ),
                                     ),
+                                    child:
+                                        t > 0.5
+                                            ? Icon(
+                                              Icons.check_rounded,
+                                              size: 10,
+                                              color: Colors.white,
+                                            )
+                                            : null,
                                   ),
                             ),
                           );
@@ -373,7 +358,7 @@ class _ReflectionJourneySectionState extends State<ReflectionJourneySection> {
               Text(
                 isMax
                     ? 'Full bloom this month 🎉'
-                    : '${widget.daysToNext} more reflection${widget.daysToNext == 1 ? '' : 's'} to ${nextStage!.label}',
+                    : '${daysToNext} more reflection${daysToNext == 1 ? '' : 's'} to ${nextStage!.label}',
                 style: theme.textTheme.bodySmall?.copyWith(
                   color: theme.colorScheme.onSurfaceVariant,
                 ),

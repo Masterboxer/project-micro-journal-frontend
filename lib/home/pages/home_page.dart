@@ -7,6 +7,7 @@ import 'package:http/http.dart' as http;
 import 'package:project_micro_journal/authentication/services/authentication_token_storage_service.dart';
 import 'package:project_micro_journal/environment/development.dart';
 import 'package:project_micro_journal/home/models/reflecto_progress.dart';
+import 'package:project_micro_journal/home/widgets/stage_up_celebration.dart';
 import 'package:project_micro_journal/posts/pages/create_post_page.dart';
 import 'package:project_micro_journal/posts/pages/first_post_invite_popup.dart';
 import 'package:project_micro_journal/profile/pages/profile_page.dart';
@@ -627,31 +628,43 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
     final result = await Navigator.of(context).push<Map<String, dynamic>>(
       MaterialPageRoute(builder: (context) => const CreatePostPage()),
     );
-
     if (result == null) return;
     if (!mounted) return;
-
     final createdPostId = result['id'];
     final shouldReloadStreak = result['should_reload_streak'] ?? false;
     final newPostText = result['text'] as String? ?? '';
 
-    setState(() => _isLoading = true);
+    // NEW: snapshot the stage before reloading, so we can compare after.
+    final stageBefore = _reflectionProgress?.stage;
 
+    setState(() => _isLoading = true);
     try {
       if (shouldReloadStreak) {
         await Future.wait([_loadFeed(), _loadReflectionProgress()]);
       } else {
         await _loadFeed();
       }
-
       if (mounted) {
         setState(() => _isLoading = false);
-
         final newPostExists = _userPosts.any(
           (post) => post['id'] == createdPostId,
         );
-
         if (newPostExists) {
+          // NEW: compare stage before vs after; fire celebration if it grew.
+          final stageAfter = _reflectionProgress?.stage;
+          if (stageBefore != null &&
+              stageAfter != null &&
+              stageAfter.index > stageBefore.index) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (!mounted) return;
+              StageUpCelebration.show(
+                context,
+                stageLabel: stageAfter.label,
+                icon: stageAfter.icon,
+              );
+            });
+          }
+
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Row(
@@ -666,15 +679,12 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
               behavior: SnackBarBehavior.floating,
             ),
           );
-
           final prefs = await SharedPreferences.getInstance();
           final hasSeenInvitePopup =
               prefs.getBool('has_seen_invite_popup') ?? false;
-
           if (!hasSeenInvitePopup && mounted) {
             await prefs.setBool('has_seen_invite_popup', true);
             await Future.delayed(const Duration(milliseconds: 600));
-
             if (mounted) {
               final displayName =
                   await _authStorage.getDisplayName() ?? 'Someone';
