@@ -1,14 +1,16 @@
+import 'package:flutter/material.dart';
+
 enum GrowthStage {
-  seed('Seed', '🌰'),
-  sprout('Sprout', '🌱'),
-  sapling('Sapling', '🌿'),
-  youngTree('Young Tree', '🌳'),
-  bloomingTree('Blooming Tree', '🌸'),
-  fullBloom('Full Bloom', '🌳✨');
+  seed('Seed', Icons.grain_rounded),
+  sprout('Sprout', Icons.eco_rounded),
+  sapling('Sapling', Icons.local_florist_rounded),
+  youngTree('Young Tree', Icons.park_rounded),
+  bloomingTree('Blooming Tree', Icons.filter_vintage_rounded),
+  fullBloom('Full Bloom', Icons.forest_rounded);
 
   final String label;
-  final String emoji;
-  const GrowthStage(this.label, this.emoji);
+  final IconData icon;
+  const GrowthStage(this.label, this.icon);
 
   static GrowthStage fromString(String s) {
     switch (s) {

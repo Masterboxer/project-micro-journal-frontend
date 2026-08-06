@@ -997,13 +997,18 @@ class _FollowersPageState extends State<FollowersPage>
 
   Widget _buildReflectionBadge(int userId) {
     final progress = _userReflectionProgress[userId];
-    if (progress == null || progress.daysPosted == 0)
+    if (progress == null || progress.daysPosted == 0) {
       return const SizedBox.shrink();
+    }
     return Row(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        Text(progress.stage.emoji, style: const TextStyle(fontSize: 14)),
+        Icon(
+          progress.stage.icon,
+          size: 14,
+          color: Theme.of(context).colorScheme.primary,
+        ),
         const SizedBox(width: 3),
         Text(
           '${progress.daysPosted}',
