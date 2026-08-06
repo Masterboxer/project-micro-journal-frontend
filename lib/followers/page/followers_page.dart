@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:project_micro_journal/home/models/reflecto_progress.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:project_micro_journal/authentication/services/authentication_token_storage_service.dart';
 import 'package:project_micro_journal/environment/development.dart';
@@ -26,7 +27,7 @@ class _FollowersPageState extends State<FollowersPage>
   final FocusNode _searchFocusNode = FocusNode();
   final AuthenticationTokenStorageService _authStorage =
       AuthenticationTokenStorageService();
-  Map<int, int> _userReflectoScores = {};
+  Map<int, ReflectoProgress> _userReflectionProgress = {};
 
   late TabController _tabController;
 
@@ -189,7 +190,7 @@ class _FollowersPageState extends State<FollowersPage>
           ..._following.map((f) => f.id),
           ..._pendingRequests.map((f) => f.id),
         }.toList();
-    await _loadReflectoScoresForUsers(allUserIds);
+    await _loadReflectionProgressForUsers(allUserIds);
   }
 
   Future<void> _loadFollowers() async {
@@ -282,14 +283,15 @@ class _FollowersPageState extends State<FollowersPage>
     }
   }
 
-  Future<void> _loadReflectoScoresForUsers(List<int> userIds) async {
+  // Replace _loadReflectoScoresForUsers entirely:
+  Future<void> _loadReflectionProgressForUsers(List<int> userIds) async {
     if (userIds.isEmpty) return;
     final String? token = await _authStorage.getAccessToken();
     final results = await Future.wait(
       userIds.map((id) async {
         try {
           final response = await http.get(
-            Uri.parse('${Environment.baseUrl}users/$id/reflecto-score'),
+            Uri.parse('${Environment.baseUrl}users/$id/reflecto-progress'),
             headers: {
               'Authorization': 'Bearer $token',
               'Content-Type': 'application/json',
@@ -297,17 +299,17 @@ class _FollowersPageState extends State<FollowersPage>
           );
           if (response.statusCode == 200) {
             final data = json.decode(response.body);
-            if (data['exists'] != false) {
-              return MapEntry(id, (data['score'] as int? ?? 0));
-            }
+            return MapEntry(id, ReflectoProgress.fromJson(data));
           }
         } catch (_) {}
-        return MapEntry(id, 0);
+        return null;
       }),
     );
     if (mounted) {
       setState(() {
-        _userReflectoScores = Map.fromEntries(results);
+        _userReflectionProgress = Map.fromEntries(
+          results.whereType<MapEntry<int, ReflectoProgress>>(),
+        );
       });
     }
   }
@@ -993,22 +995,19 @@ class _FollowersPageState extends State<FollowersPage>
     );
   }
 
-  Widget _buildReflectoScoreBadge(int userId) {
-    final score = _userReflectoScores[userId] ?? 0;
-    if (score == 0) return const SizedBox.shrink();
+  Widget _buildReflectionBadge(int userId) {
+    final progress = _userReflectionProgress[userId];
+    if (progress == null || progress.daysPosted == 0)
+      return const SizedBox.shrink();
     return Row(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        const Icon(Icons.auto_awesome, size: 16, color: Colors.amber),
-        const SizedBox(width: 2),
+        Text(progress.stage.emoji, style: const TextStyle(fontSize: 14)),
+        const SizedBox(width: 3),
         Text(
-          '$score',
-          style: const TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.w600,
-            color: Colors.amber,
-          ),
+          '${progress.daysPosted}',
+          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
         ),
       ],
     );
@@ -1252,7 +1251,7 @@ class _FollowersPageState extends State<FollowersPage>
                               ),
                             ),
                             const SizedBox(width: 8),
-                            _buildReflectoScoreBadge(follower.id),
+                            _buildReflectionBadge(follower.id),
                           ],
                         ),
                         subtitle: Text(
@@ -1394,7 +1393,7 @@ class _FollowersPageState extends State<FollowersPage>
                               ),
                             ),
                             const SizedBox(width: 8),
-                            _buildReflectoScoreBadge(user.id),
+                            _buildReflectionBadge(user.id),
                           ],
                         ),
                         subtitle: Text(
@@ -1490,7 +1489,7 @@ class _FollowersPageState extends State<FollowersPage>
                               ),
                             ),
                             const SizedBox(width: 8),
-                            _buildReflectoScoreBadge(request.id),
+                            _buildReflectionBadge(request.id),
                           ],
                         ),
                         subtitle: Text(

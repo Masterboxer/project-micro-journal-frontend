@@ -4,6 +4,8 @@ import 'package:http/http.dart' as http;
 import 'package:project_micro_journal/authentication/pages/login_page.dart';
 import 'package:project_micro_journal/authentication/services/authentication_token_storage_service.dart';
 import 'package:project_micro_journal/environment/development.dart';
+import 'package:project_micro_journal/home/models/reflecto_progress.dart';
+import 'package:project_micro_journal/home/widgets/reflecto_journey_section.dart';
 import 'package:project_micro_journal/templates/template_service.dart';
 
 class ProfilePage extends StatefulWidget {
@@ -29,7 +31,7 @@ class _ProfilePageState extends State<ProfilePage> {
   List<Map<String, dynamic>> _userPosts = [];
   bool _isLoading = true;
   String? _error;
-  Map<String, dynamic>? _reflectoScore;
+  ReflectoProgress? _reflectionProgress;
 
   @override
   void initState() {
@@ -60,7 +62,7 @@ class _ProfilePageState extends State<ProfilePage> {
       await Future.wait([
         _loadUserInfo(userId),
         _loadUserPosts(userId),
-        _loadReflectoScore(userId),
+        _loadReflectionProgress(userId),
       ]);
     } catch (e) {
       setState(() {
@@ -72,118 +74,10 @@ class _ProfilePageState extends State<ProfilePage> {
     }
   }
 
-  Widget _buildReflectoScoreSection(ThemeData theme) {
-    final score = (_reflectoScore?['score'] as int?) ?? 0;
-
-    final String tierLabel;
-    final Color tierColor;
-    final IconData tierIcon;
-
-    if (score >= 100) {
-      tierLabel = 'Legend';
-      tierColor = const Color(0xFFFFD700);
-      tierIcon = Icons.auto_awesome;
-    } else if (score >= 50) {
-      tierLabel = 'Pro';
-      tierColor = const Color(0xFF9C27B0);
-      tierIcon = Icons.workspace_premium;
-    } else if (score >= 20) {
-      tierLabel = 'Rising';
-      tierColor = const Color(0xFF2196F3);
-      tierIcon = Icons.trending_up;
-    } else {
-      tierLabel = 'Starter';
-      tierColor = theme.colorScheme.primary;
-      tierIcon = Icons.star_outline;
-    }
-
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-      child: Card(
-        elevation: 0,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-          side: BorderSide(color: tierColor.withOpacity(0.25), width: 1.5),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              Container(
-                width: 48,
-                height: 48,
-                decoration: BoxDecoration(
-                  gradient: RadialGradient(
-                    colors: [
-                      tierColor.withOpacity(0.25),
-                      tierColor.withOpacity(0.06),
-                    ],
-                  ),
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(tierIcon, color: tierColor, size: 26),
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Reflecto Score',
-                      style: theme.textTheme.labelMedium?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
-                        letterSpacing: 0.4,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.baseline,
-                      textBaseline: TextBaseline.alphabetic,
-                      children: [
-                        Text(
-                          '$score',
-                          style: theme.textTheme.headlineMedium?.copyWith(
-                            fontWeight: FontWeight.w800,
-                            color: tierColor,
-                            height: 1,
-                          ),
-                        ),
-                        const SizedBox(width: 6),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 2,
-                          ),
-                          decoration: BoxDecoration(
-                            color: tierColor.withOpacity(0.12),
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                          child: Text(
-                            tierLabel,
-                            style: theme.textTheme.labelSmall?.copyWith(
-                              color: tierColor,
-                              fontWeight: FontWeight.w700,
-                              letterSpacing: 0.5,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Future<void> _loadReflectoScore(String userId) async {
+  Future<void> _loadReflectionProgress(String userId) async {
     final String? token = await _authStorage.getAccessToken();
     final response = await http.get(
-      Uri.parse('${Environment.baseUrl}users/$userId/reflecto-score'),
+      Uri.parse('${Environment.baseUrl}users/$userId/reflecto-progress'),
       headers: {
         'Authorization': 'Bearer $token',
         'Content-Type': 'application/json',
@@ -192,7 +86,7 @@ class _ProfilePageState extends State<ProfilePage> {
     if (response.statusCode == 200) {
       final data = json.decode(response.body);
       if (mounted) {
-        setState(() => _reflectoScore = data['exists'] == false ? null : data);
+        setState(() => _reflectionProgress = ReflectoProgress.fromJson(data));
       }
     }
   }
@@ -657,9 +551,18 @@ class _ProfilePageState extends State<ProfilePage> {
               ),
             ),
           ],
-          if (_reflectoScore != null) ...[
+          if (_reflectionProgress != null) ...[
             const SizedBox(height: 16),
-            _buildReflectoScoreSection(Theme.of(context)),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 0),
+              child: ReflectionJourneySection(
+                daysPosted: _reflectionProgress!.daysPosted,
+                stage: _reflectionProgress!.stage,
+                daysToNext: _reflectionProgress!.daysToNext,
+                progressInStage: _reflectionProgress!.progressInStage,
+                hasPostedToday: _reflectionProgress!.hasPostedToday,
+              ),
+            ),
           ],
         ],
       ),

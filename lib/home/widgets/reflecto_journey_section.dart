@@ -17,12 +17,16 @@ class ReflectionJourneySection extends StatelessWidget {
     required this.hasPostedToday,
   });
 
+  static const List<int> _stageThresholds = [3, 7, 13, 19, 25];
+  static const double _totalSpan = 25.0;
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isMax = daysToNext < 0;
     final nextStage = isMax ? null : GrowthStage.values[stage.index + 1];
     final accent = theme.colorScheme.primary;
+    final fillFraction = (daysPosted / _totalSpan).clamp(0.0, 1.0);
 
     return Card(
       elevation: 0,
@@ -106,54 +110,61 @@ class ReflectionJourneySection extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 18),
-            Row(
-              children: List.generate(GrowthStage.values.length, (i) {
-                final filled = i <= stage.index;
-                final isCurrent = i == stage.index;
-                return Expanded(
-                  child: Padding(
-                    padding: EdgeInsets.only(
-                      right: i == GrowthStage.values.length - 1 ? 0 : 4,
-                    ),
-                    child: TweenAnimationBuilder<double>(
-                      tween: Tween(
-                        begin: 0,
-                        end:
-                            filled
-                                ? (isCurrent
-                                    ? progressInStage.clamp(0.0, 1.0)
-                                    : 1.0)
-                                : 0.0,
-                      ),
-                      duration: const Duration(milliseconds: 500),
-                      curve: Curves.easeOutCubic,
-                      builder:
-                          (context, value, _) => ClipRRect(
-                            borderRadius: BorderRadius.circular(4),
-                            child: Stack(
-                              children: [
-                                Container(
-                                  height: 6,
-                                  color: theme.colorScheme.outlineVariant
-                                      .withOpacity(0.3),
-                                ),
-                                FractionallySizedBox(
-                                  widthFactor: value,
-                                  child: Container(height: 6, color: accent),
-                                ),
-                              ],
-                            ),
+            SizedBox(
+              height: 12,
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final width = constraints.maxWidth;
+                  return Stack(
+                    alignment: Alignment.centerLeft,
+                    children: [
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(6),
+                        child: Container(
+                          height: 10,
+                          width: width,
+                          color: theme.colorScheme.outlineVariant.withOpacity(
+                            0.3,
                           ),
-                    ),
-                  ),
-                );
-              }),
+                        ),
+                      ),
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(6),
+                        child: TweenAnimationBuilder<double>(
+                          tween: Tween(begin: 0, end: fillFraction),
+                          duration: const Duration(milliseconds: 600),
+                          curve: Curves.easeOutCubic,
+                          builder:
+                              (context, value, _) => Container(
+                                height: 10,
+                                width: width * value,
+                                color: accent,
+                              ),
+                        ),
+                      ),
+                      // Tick marks at each stage boundary
+                      ..._stageThresholds.map((day) {
+                        final f = day / _totalSpan;
+                        final left = (width * f).clamp(0.0, width - 2.0);
+                        return Positioned(
+                          left: left,
+                          child: Container(
+                            width: 2,
+                            height: 10,
+                            color: theme.colorScheme.surfaceContainerLow,
+                          ),
+                        );
+                      }),
+                    ],
+                  );
+                },
+              ),
             ),
             const SizedBox(height: 10),
             Text(
               isMax
                   ? 'Full bloom this month 🎉'
-                  : '$daysToNext more to ${nextStage!.label}',
+                  : '$daysToNext more reflection${daysToNext == 1 ? '' : 's'} to ${nextStage!.label}',
               style: theme.textTheme.bodySmall?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
               ),
