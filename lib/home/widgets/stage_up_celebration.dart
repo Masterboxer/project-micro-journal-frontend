@@ -68,7 +68,7 @@ class _CelebrationOverlayState extends State<_CelebrationOverlay>
 
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 1800),
+      duration: const Duration(milliseconds: 4000),
     )..forward();
 
     _controller.addStatusListener((status) {
@@ -93,14 +93,14 @@ class _CelebrationOverlayState extends State<_CelebrationOverlay>
         builder: (context, _) {
           final t = _controller.value;
           double bannerOpacity;
-          if (t < 0.15) {
-            bannerOpacity = t / 0.15;
-          } else if (t > 0.75) {
-            bannerOpacity = ((1 - t) / 0.25).clamp(0.0, 1.0);
+          if (t < 0.1) {
+            bannerOpacity = t / 0.1;
+          } else if (t > 0.85) {
+            bannerOpacity = ((1 - t) / 0.15).clamp(0.0, 1.0);
           } else {
             bannerOpacity = 1.0;
           }
-          final bannerScale = 0.8 + 0.2 * (t < 0.15 ? t / 0.15 : 1.0);
+          final bannerScale = 0.8 + 0.2 * (t < 0.1 ? t / 0.1 : 1.0);
 
           return Stack(
             children: [
