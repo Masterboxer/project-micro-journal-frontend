@@ -1,7 +1,7 @@
 plugins {
   id("com.google.gms.google-services") version "4.4.4" apply false
 }
-val defaultVersionCode by extra(38)
+val defaultVersionCode by extra(39)
 
 allprojects {
     repositories {
