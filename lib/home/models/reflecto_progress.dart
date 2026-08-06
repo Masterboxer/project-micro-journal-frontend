@@ -5,8 +5,8 @@ enum GrowthStage {
   sprout('Sprout', Icons.eco_rounded),
   sapling('Sapling', Icons.local_florist_rounded),
   youngTree('Young Tree', Icons.park_rounded),
-  bloomingTree('Blooming Tree', Icons.filter_vintage_rounded),
-  fullBloom('Full Bloom', Icons.forest_rounded);
+  bloomingTree('Blooming Tree', Icons.filter_vintage_outlined),
+  elderOak('Elder Oak', Icons.forest_rounded);
 
   final String label;
   final IconData icon;
@@ -25,7 +25,7 @@ enum GrowthStage {
       case 'blooming_tree':
         return GrowthStage.bloomingTree;
       case 'full_bloom':
-        return GrowthStage.fullBloom;
+        return GrowthStage.elderOak;
       default:
         return GrowthStage.seed;
     }

@@ -87,7 +87,7 @@ class ReflectionJourneySection extends StatelessWidget {
               ),
               const SizedBox(height: 20),
               Text(
-                'Post once a day to grow your tree. It resets each month — post 25 of 30 days to reach Full Bloom.',
+                'Post once a day to grow your tree. It resets each month — post 25 of 30 days to reach The Elder Oak Tree.',
                 style: theme.textTheme.bodySmall?.copyWith(
                   color: theme.colorScheme.onSurfaceVariant,
                   height: 1.4,
@@ -357,7 +357,7 @@ class ReflectionJourneySection extends StatelessWidget {
               const SizedBox(height: 10),
               Text(
                 isMax
-                    ? 'Full bloom this month 🎉'
+                    ? 'Elder Oak Tree this month 🎉'
                     : '${daysToNext} more reflection${daysToNext == 1 ? '' : 's'} to ${nextStage!.label}',
                 style: theme.textTheme.bodySmall?.copyWith(
                   color: theme.colorScheme.onSurfaceVariant,
