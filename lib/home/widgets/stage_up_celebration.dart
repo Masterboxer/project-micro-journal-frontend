@@ -68,7 +68,7 @@ class _CelebrationOverlayState extends State<_CelebrationOverlay>
 
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 4000),
+      duration: const Duration(milliseconds: 6000),
     )..forward();
 
     _controller.addStatusListener((status) {
