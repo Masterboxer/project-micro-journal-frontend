@@ -1,461 +1,138 @@
 import 'package:flutter/material.dart';
-import 'score_rows.dart';
+import 'package:project_micro_journal/home/models/reflecto_progress.dart';
 
-class ReflectoScoreSection extends StatefulWidget {
-  final int score;
+class ReflectionJourneySection extends StatelessWidget {
+  final int daysPosted;
+  final GrowthStage stage;
+  final int daysToNext;
+  final double progressInStage;
   final bool hasPostedToday;
 
-  final GlobalKey? scoreTargetKey;
-
-  const ReflectoScoreSection({
+  const ReflectionJourneySection({
     super.key,
-    required this.score,
+    required this.daysPosted,
+    required this.stage,
+    required this.daysToNext,
+    required this.progressInStage,
     required this.hasPostedToday,
-    this.scoreTargetKey,
   });
-
-  @override
-  State<ReflectoScoreSection> createState() => _ReflectoScoreSectionState();
-}
-
-class _ReflectoScoreSectionState extends State<ReflectoScoreSection>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _pulseController;
-  late final Animation<double> _scaleAnim;
-
-  late int _displayScore;
-  bool _countingUp = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _displayScore = widget.score;
-
-    _pulseController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 500),
-    );
-
-    _scaleAnim = TweenSequence<double>([
-      TweenSequenceItem(
-        weight: 35,
-        tween: Tween(
-          begin: 1.0,
-          end: 1.32,
-        ).chain(CurveTween(curve: Curves.easeOut)),
-      ),
-      TweenSequenceItem(
-        weight: 65,
-        tween: Tween(
-          begin: 1.32,
-          end: 1.0,
-        ).chain(CurveTween(curve: Curves.elasticOut)),
-      ),
-    ]).animate(_pulseController);
-  }
-
-  @override
-  void didUpdateWidget(covariant ReflectoScoreSection oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (widget.score != oldWidget.score && !_countingUp) {
-      _animateToNewScore(oldWidget.score, widget.score);
-    }
-  }
-
-  Future<void> _animateToNewScore(int from, int to) async {
-    _countingUp = true;
-    _pulseController.forward(from: 0);
-
-    final diff = to - from;
-    final steps = diff.abs().clamp(1, 12);
-    final stepMs = (280 / steps).clamp(18, 280).round();
-
-    for (int i = 1; i <= steps; i++) {
-      await Future.delayed(Duration(milliseconds: stepMs));
-      if (!mounted) return;
-      setState(() => _displayScore = from + ((diff * i) / steps).round());
-    }
-    if (mounted) setState(() => _displayScore = to);
-    _countingUp = false;
-  }
-
-  @override
-  void dispose() {
-    _pulseController.dispose();
-    super.dispose();
-  }
-
-  ({String label, Color color, IconData icon}) _tierFor(
-    ThemeData theme,
-    int score,
-  ) {
-    if (score >= 100) {
-      return (
-        label: 'Legend',
-        color: const Color(0xFFFFD700),
-        icon: Icons.auto_awesome,
-      );
-    } else if (score >= 50) {
-      return (
-        label: 'Pro',
-        color: const Color(0xFF9C27B0),
-        icon: Icons.workspace_premium,
-      );
-    } else if (score >= 20) {
-      return (
-        label: 'Rising',
-        color: const Color(0xFF2196F3),
-        icon: Icons.trending_up,
-      );
-    }
-    return (
-      label: 'Starter',
-      color: theme.colorScheme.primary,
-      icon: Icons.star_outline,
-    );
-  }
-
-  DateTime _nextDeadline() {
-    final now = DateTime.now();
-    if (now.hour < 12) {
-      return DateTime(now.year, now.month, now.day, 12, 0, 0);
-    }
-    final tomorrow = now.add(const Duration(days: 1));
-    return DateTime(tomorrow.year, tomorrow.month, tomorrow.day, 12, 0, 0);
-  }
-
-  Duration _timeUntilDeadline() => _nextDeadline().difference(DateTime.now());
-
-  String _formatTimeUntilDeadline() {
-    final d = _timeUntilDeadline();
-    final h = d.inHours;
-    final m = d.inMinutes.remainder(60);
-    if (h > 0) return '${h}h ${m}m';
-    return '${m}m';
-  }
-
-  void _showScoringCriteriaSheet(BuildContext context) {
-    final theme = Theme.of(context);
-    final tier = _tierFor(theme, widget.score);
-
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) {
-        return Container(
-          decoration: BoxDecoration(
-            color: theme.colorScheme.surface,
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-          ),
-          padding: const EdgeInsets.fromLTRB(24, 12, 24, 32),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Center(
-                child: Container(
-                  width: 36,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: theme.colorScheme.outlineVariant,
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 20),
-              Row(
-                children: [
-                  Container(
-                    width: 44,
-                    height: 44,
-                    decoration: BoxDecoration(
-                      color: tier.color.withOpacity(0.12),
-                      shape: BoxShape.circle,
-                    ),
-                    child: Icon(tier.icon, color: tier.color, size: 24),
-                  ),
-                  const SizedBox(width: 14),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'How your score is calculated',
-                        style: theme.textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      Text(
-                        'You\'re ${tier.label} tier · ${widget.score} pts',
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: tier.color,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-              const SizedBox(height: 24),
-              ScoreRow(
-                emoji: '✍️',
-                label: 'Create a post',
-                points: '+5 pts',
-                color: Colors.green,
-                theme: theme,
-              ),
-              const SizedBox(height: 12),
-              ScoreRow(
-                emoji: '💬',
-                label: 'Leave a comment',
-                points: '+2 pts',
-                color: Colors.blue,
-                theme: theme,
-              ),
-              const SizedBox(height: 12),
-              ScoreRow(
-                emoji: '❤️',
-                label: 'React to a post',
-                points: '+1 pt',
-                color: Colors.red,
-                theme: theme,
-              ),
-              const SizedBox(height: 12),
-              ScoreRow(
-                emoji: '🌙',
-                label: 'Miss a day',
-                points: '-1 pt',
-                color: Colors.grey,
-                theme: theme,
-              ),
-              const SizedBox(height: 6),
-              Padding(
-                padding: const EdgeInsets.only(left: 54),
-                child: Text(
-                  'Score Decay keeps your posting habit strong, and helps you spot which friends are still active.',
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 24),
-              Divider(color: theme.colorScheme.outlineVariant),
-              const SizedBox(height: 16),
-              Text(
-                'Tiers',
-                style: theme.textTheme.labelLarge?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              const SizedBox(height: 12),
-              TierRow(
-                icon: Icons.star_outline,
-                label: 'Starter',
-                range: '0–19 pts',
-                color: theme.colorScheme.primary,
-                theme: theme,
-              ),
-              const SizedBox(height: 8),
-              TierRow(
-                icon: Icons.trending_up,
-                label: 'Rising',
-                range: '20–49 pts',
-                color: const Color(0xFF2196F3),
-                theme: theme,
-              ),
-              const SizedBox(height: 8),
-              TierRow(
-                icon: Icons.workspace_premium,
-                label: 'Pro',
-                range: '50–99 pts',
-                color: const Color(0xFF9C27B0),
-                theme: theme,
-              ),
-              const SizedBox(height: 8),
-              TierRow(
-                icon: Icons.auto_awesome,
-                label: 'Legend',
-                range: '100+ pts',
-                color: const Color(0xFFFFD700),
-                theme: theme,
-              ),
-              const SizedBox(height: 24),
-            ],
-          ),
-        );
-      },
-    );
-  }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final timeLeft = _formatTimeUntilDeadline();
-    final hoursLeft = _timeUntilDeadline().inHours;
-    final tier = _tierFor(theme, _displayScore);
+    final isMax = daysToNext < 0;
+    final nextStage = isMax ? null : GrowthStage.values[stage.index + 1];
 
-    final Color freshnessBg;
-    final Color freshnessText;
-    final IconData freshnessIcon;
-    final String freshnessLabel;
-
-    if (widget.hasPostedToday) {
-      freshnessBg = Colors.green.withOpacity(0.12);
-      freshnessText = Colors.green.shade700;
-      freshnessIcon = Icons.check_circle_outline_rounded;
-      freshnessLabel = 'Post Created Today ✓';
-    } else if (hoursLeft <= 3) {
-      freshnessBg = Colors.red.withOpacity(0.10);
-      freshnessText = Colors.red.shade700;
-      freshnessIcon = Icons.timer_outlined;
-      freshnessLabel = 'Post soon — $timeLeft left today';
-    } else {
-      freshnessBg = Colors.orange.withOpacity(0.10);
-      freshnessText = Colors.orange.shade800;
-      freshnessIcon = Icons.hourglass_bottom_rounded;
-      freshnessLabel = '$timeLeft left to maintain your Reflecto Score';
-    }
-
-    return GestureDetector(
-      onTap: () => _showScoringCriteriaSheet(context),
-      child: Card(
-        elevation: 0,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-          side: BorderSide(color: tier.color.withOpacity(0.25), width: 1.5),
+    return Card(
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(
+          color: theme.colorScheme.primary.withOpacity(0.2),
+          width: 1.5,
         ),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  AnimatedBuilder(
-                    animation: _pulseController,
-                    builder:
-                        (context, child) => Transform.scale(
-                          scale: _scaleAnim.value,
-                          child: child,
-                        ),
-                    child: Container(
-                      width: 48,
-                      height: 48,
-                      decoration: BoxDecoration(
-                        gradient: RadialGradient(
-                          colors: [
-                            tier.color.withOpacity(0.25),
-                            tier.color.withOpacity(0.06),
-                          ],
-                        ),
-                        shape: BoxShape.circle,
-                      ),
-                      child: Icon(tier.icon, color: tier.color, size: 26),
-                    ),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                TweenAnimationBuilder<double>(
+                  tween: Tween(begin: 0.9, end: 1.0),
+                  duration: const Duration(milliseconds: 400),
+                  curve: Curves.elasticOut,
+                  builder:
+                      (context, scale, child) =>
+                          Transform.scale(scale: scale, child: child),
+                  child: Text(
+                    stage.emoji,
+                    style: const TextStyle(fontSize: 22),
                   ),
-                  const SizedBox(width: 14),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Reflecto Score',
-                          style: theme.textTheme.labelMedium?.copyWith(
-                            color: theme.colorScheme.onSurfaceVariant,
-                            letterSpacing: 0.4,
-                          ),
-                        ),
-                        const SizedBox(height: 2),
-                        Row(
-                          crossAxisAlignment: CrossAxisAlignment.baseline,
-                          textBaseline: TextBaseline.alphabetic,
-                          children: [
-                            AnimatedBuilder(
-                              animation: _pulseController,
-                              builder:
-                                  (context, child) => Transform.scale(
-                                    scale: _scaleAnim.value,
-                                    child: child,
-                                  ),
-                              child: Container(
-                                key: widget.scoreTargetKey,
-                                child: Text(
-                                  '$_displayScore',
-                                  style: theme.textTheme.headlineMedium
-                                      ?.copyWith(
-                                        fontWeight: FontWeight.w800,
-                                        color: Color.lerp(
-                                          tier.color,
-                                          Colors.green,
-                                          _pulseController.value *
-                                              (1 - _pulseController.value) *
-                                              4,
-                                        ),
-                                        height: 1,
-                                      ),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 6),
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
-                                vertical: 2,
-                              ),
-                              decoration: BoxDecoration(
-                                color: tier.color.withOpacity(0.12),
-                                borderRadius: BorderRadius.circular(20),
-                              ),
-                              child: Text(
-                                tier.label,
-                                style: theme.textTheme.labelSmall?.copyWith(
-                                  color: tier.color,
-                                  fontWeight: FontWeight.w700,
-                                  letterSpacing: 0.5,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  'Reflection Journey',
+                  style: theme.textTheme.labelMedium?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                    letterSpacing: 0.4,
                   ),
-                  Icon(
-                    Icons.info_outline_rounded,
-                    size: 20,
-                    color: theme.colorScheme.onSurfaceVariant.withOpacity(0.4),
-                  ),
-                ],
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Text(
+              '$daysPosted reflection${daysPosted == 1 ? '' : 's'} this month',
+              style: theme.textTheme.headlineSmall?.copyWith(
+                fontWeight: FontWeight.w800,
               ),
-              const SizedBox(height: 14),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              stage.label,
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.w700,
+                color: theme.colorScheme.primary,
+              ),
+            ),
+            const SizedBox(height: 8),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: TweenAnimationBuilder<double>(
+                tween: Tween(begin: 0, end: progressInStage.clamp(0.0, 1.0)),
+                duration: const Duration(milliseconds: 600),
+                curve: Curves.easeOutCubic,
+                builder:
+                    (context, value, _) => LinearProgressIndicator(
+                      value: value,
+                      minHeight: 8,
+                      backgroundColor: theme.colorScheme.outlineVariant
+                          .withOpacity(0.3),
+                      color: theme.colorScheme.primary,
+                    ),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              isMax
+                  ? 'Full bloom this month 🎉'
+                  : '$daysToNext more reflection${daysToNext == 1 ? '' : 's'} until ${nextStage!.label}',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+            const SizedBox(height: 12),
+            if (hasPostedToday)
               Container(
-                width: double.infinity,
                 padding: const EdgeInsets.symmetric(
                   horizontal: 12,
-                  vertical: 8,
+                  vertical: 6,
                 ),
                 decoration: BoxDecoration(
-                  color: freshnessBg,
+                  color: Colors.green.withOpacity(0.12),
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Row(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(freshnessIcon, size: 14, color: freshnessText),
-                    const SizedBox(width: 8),
+                    Icon(
+                      Icons.check_circle_outline_rounded,
+                      size: 14,
+                      color: Colors.green.shade700,
+                    ),
+                    const SizedBox(width: 6),
                     Text(
-                      freshnessLabel,
+                      'Reflected today',
                       style: theme.textTheme.labelSmall?.copyWith(
-                        color: freshnessText,
+                        color: Colors.green.shade700,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
                   ],
                 ),
               ),
-            ],
-          ),
+          ],
         ),
       ),
     );

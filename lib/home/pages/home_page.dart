@@ -6,8 +6,7 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:http/http.dart' as http;
 import 'package:project_micro_journal/authentication/services/authentication_token_storage_service.dart';
 import 'package:project_micro_journal/environment/development.dart';
-import 'package:project_micro_journal/home/models/reflecto_score.dart';
-import 'package:project_micro_journal/home/widgets/score_fly_overlay.dart';
+import 'package:project_micro_journal/home/models/reflecto_progress.dart';
 import 'package:project_micro_journal/posts/pages/create_post_page.dart';
 import 'package:project_micro_journal/posts/pages/first_post_invite_popup.dart';
 import 'package:project_micro_journal/profile/pages/profile_page.dart';
@@ -39,7 +38,6 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
   final AuthenticationTokenStorageService _authStorage =
       AuthenticationTokenStorageService();
   final FirebaseMessaging _firebaseMessaging = FirebaseMessaging.instance;
-  final _scoreTargetKey = GlobalKey();
 
   final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
       FlutterLocalNotificationsPlugin();
@@ -48,7 +46,7 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
   List<Map<String, dynamic>> _userPosts = [];
   List<Map<String, dynamic>> _friendsPosts = [];
-  ReflectoScore? _reflectoScore;
+  ReflectoProgress? _reflectionProgress;
   bool _isLoading = true;
   String? _error;
   int? _currentUserId;
@@ -154,7 +152,7 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
       await _templateService.fetchTemplatesFromBackend();
       await Future.wait([
         _loadFeed(),
-        _loadReflectoScore(),
+        _loadReflectionProgress(),
         _loadUserVerificationStatus(),
       ]);
       if (_showVerificationBanner) {
@@ -561,12 +559,14 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
     }
   }
 
-  Future<void> _loadReflectoScore() async {
+  Future<void> _loadReflectionProgress() async {
     if (_currentUserId == null) return;
 
     final String? token = await _authStorage.getAccessToken();
     final response = await http.get(
-      Uri.parse('${environmentVariable}users/$_currentUserId/reflecto-score'),
+      Uri.parse(
+        '${environmentVariable}users/$_currentUserId/reflecto-progress',
+      ),
       headers: {
         'Authorization': 'Bearer $token',
         'Content-Type': 'application/json',
@@ -575,11 +575,7 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
     if (response.statusCode == 200) {
       final data = json.decode(response.body);
-      if (data['exists'] == false) {
-        setState(() => _reflectoScore = null);
-      } else {
-        setState(() => _reflectoScore = ReflectoScore.fromJson(data));
-      }
+      setState(() => _reflectionProgress = ReflectoProgress.fromJson(data));
     }
   }
 
@@ -597,15 +593,7 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
             postId: post['id'],
             currentUserId: _currentUserId!,
             onCommentAdded: () => _loadFeed(),
-            onCommentPosted: (tapPosition) {
-              ScoreFlyOverlay.fly(
-                context: sheetContext,
-                start: tapPosition,
-                targetKey: _scoreTargetKey,
-                points: 2,
-                onLanded: _loadReflectoScore,
-              );
-            },
+            onCommentPosted: (tapPosition) {},
           ),
     );
   }
@@ -651,7 +639,7 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
     try {
       if (shouldReloadStreak) {
-        await Future.wait([_loadFeed(), _loadReflectoScore()]);
+        await Future.wait([_loadFeed(), _loadReflectionProgress()]);
       } else {
         await _loadFeed();
       }
@@ -711,7 +699,7 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
                 label: 'Refresh',
                 textColor: Colors.white,
                 onPressed: () async {
-                  await Future.wait([_loadFeed(), _loadReflectoScore()]);
+                  await Future.wait([_loadFeed(), _loadReflectionProgress()]);
                 },
               ),
             ),
@@ -729,7 +717,7 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
               label: 'Retry',
               textColor: Colors.white,
               onPressed: () async {
-                await Future.wait([_loadFeed(), _loadReflectoScore()]);
+                await Future.wait([_loadFeed(), _loadReflectionProgress()]);
               },
             ),
           ),
@@ -741,7 +729,7 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
   Future<void> _refreshPosts() async {
     _error = null;
     try {
-      await Future.wait([_loadFeed(), _loadReflectoScore()]);
+      await Future.wait([_loadFeed(), _loadReflectionProgress()]);
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -816,10 +804,12 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
       child: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          ReflectoScoreSection(
-            score: _reflectoScore?.score ?? 0,
+          ReflectionJourneySection(
+            daysPosted: _reflectionProgress?.daysPosted ?? 0,
+            stage: _reflectionProgress?.stage ?? GrowthStage.seed,
+            daysToNext: _reflectionProgress?.daysToNext ?? 3,
+            progressInStage: _reflectionProgress?.progressInStage ?? 0.0,
             hasPostedToday: _userPosts.isNotEmpty,
-            scoreTargetKey: _scoreTargetKey,
           ),
           const SizedBox(height: 16),
           VerificationBanner(
@@ -965,17 +955,6 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
       );
 
       if (response.statusCode == 200) {
-        if (isUnselecting) {
-          await _loadReflectoScore();
-        } else {
-          ScoreFlyOverlay.fly(
-            context: context,
-            start: tapPosition,
-            targetKey: _scoreTargetKey,
-            points: 1,
-            onLanded: _loadReflectoScore,
-          );
-        }
         await _loadFeed();
       }
     } catch (e) {
@@ -989,10 +968,12 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
       child: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          ReflectoScoreSection(
-            score: _reflectoScore?.score ?? 0,
+          ReflectionJourneySection(
+            daysPosted: _reflectionProgress?.daysPosted ?? 0,
+            stage: _reflectionProgress?.stage ?? GrowthStage.seed,
+            daysToNext: _reflectionProgress?.daysToNext ?? 3,
+            progressInStage: _reflectionProgress?.progressInStage ?? 0.0,
             hasPostedToday: _userPosts.isNotEmpty,
-            scoreTargetKey: _scoreTargetKey,
           ),
           const SizedBox(height: 16),
           VerificationBanner(
